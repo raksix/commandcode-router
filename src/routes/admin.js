@@ -76,8 +76,9 @@ adminRouter.get('/status', (req, res) => {
   });
 
   res.json({
+    masterKeys: (data.config.masterKeys || []).map(maskMasterKey),
     masterKeyMasked: maskKey(data.config.masterKey),
-    masterKeySet: !!data.config.masterKey,
+    masterKeySet: (data.config.masterKeys || []).length > 0,
     roundRobinIndex: data.state.roundRobinIndex,
     stats: data.state.stats,
     accounts,
@@ -180,16 +181,56 @@ adminRouter.post('/accounts/:id/test', async (req, res) => {
   }
 });
 
-// ---- master key management ----
+// ---- master key management (çoklu key) ----
+// Yeni key oluştur (opsiyonel isim)
 adminRouter.post('/master-key', (req, res) => {
-  const { value } = req.body ?? {};
-  if (value) {
-    data.config.masterKey = String(value).trim();
-  } else {
-    data.config.masterKey = 'mk_' + crypto.randomBytes(16).toString('hex');
-  }
+  const { name } = req.body ?? {};
+  if (!Array.isArray(data.config.masterKeys)) data.config.masterKeys = [];
+  const entry = {
+    id: crypto.randomUUID(),
+    name: String(name || '').trim() || `Anahtar ${data.config.masterKeys.length + 1}`,
+    key: 'mk_' + crypto.randomBytes(16).toString('hex'),
+    createdAt: Date.now(),
+    lastUsedAt: null
+  };
+  data.config.masterKeys.push(entry);
   markDirty();
-  res.json({ ok: true, masterKey: data.config.masterKey });
+  res.json({ ok: true, key: entry });
+});
+
+// Key sil (son key silinemez — en az 1 aktif key kalmalı)
+adminRouter.delete('/master-key/:id', (req, res) => {
+  const id = req.params.id;
+  const keys = data.config.masterKeys || [];
+  if (keys.length <= 1) {
+    res.status(400).json({ error: 'Son anahtar silinemez — en az 1 anahtar gerekli' });
+    return;
+  }
+  const idx = keys.findIndex((k) => k.id === id);
+  if (idx === -1) { res.status(404).json({ error: 'anahtar bulunamadı' }); return; }
+  keys.splice(idx, 1);
+  markDirty();
+  res.json({ ok: true, masterKeys: keys.map(maskMasterKey) });
+});
+
+// Key yenile (aynı isimle yeni key üret, eskisini iptal et)
+adminRouter.post('/master-key/:id/regenerate', (req, res) => {
+  const id = req.params.id;
+  const k = (data.config.masterKeys || []).find((x) => x.id === id);
+  if (!k) { res.status(404).json({ error: 'anahtar bulunamadı' }); return; }
+  k.key = 'mk_' + crypto.randomBytes(16).toString('hex');
+  k.createdAt = Date.now();
+  k.lastUsedAt = null;
+  markDirty();
+  res.json({ ok: true, key: k });
+});
+
+// Key tam değerini göster (admin oturumuyla; kopyalama için)
+adminRouter.get('/master-key/:id/reveal', (req, res) => {
+  const id = req.params.id;
+  const k = (data.config.masterKeys || []).find((x) => x.id === id);
+  if (!k) { res.status(404).json({ error: 'anahtar bulunamadı' }); return; }
+  res.json({ ok: true, key: k.key });
 });
 
 // ---- model list (from CommandCode) ----
@@ -300,4 +341,15 @@ function maskKey(key) {
   if (!key) return '';
   if (key.length <= 8) return '***';
   return key.slice(0, 4) + '…' + key.slice(-4);
+}
+
+/** Master key'i UI'a güvenli şekilde gönder (tam key sadece oluşturma anında döner). */
+function maskMasterKey(k) {
+  return {
+    id: k.id,
+    name: k.name,
+    keyMasked: maskKey(k.key),
+    createdAt: k.createdAt,
+    lastUsedAt: k.lastUsedAt ?? null
+  };
 }

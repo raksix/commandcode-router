@@ -2,10 +2,14 @@ import crypto from 'node:crypto';
 import { data, markDirty } from './store.js';
 
 // ---- Master key auth (for /v1/*) ----
+// Çoklu master key destekler: config.masterKeys[] içindeki herhangi biri geçerli.
+// (Legacy tek masterKey de otomatik masterKeys'e taşındığı için ayrıca kontrol gerekmez.)
 export function requireMasterKey(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : (req.headers['x-api-key'] || '');
-  if (!token || token !== data.config.masterKey) {
+  const keys = Array.isArray(data.config.masterKeys) ? data.config.masterKeys : [];
+  const match = keys.find((k) => k.key && token === k.key);
+  if (!token || !match) {
     res.status(401).json({
       type: 'error',
       error: {
@@ -14,6 +18,11 @@ export function requireMasterKey(req, res, next) {
       }
     });
     return;
+  }
+  // key kullanımını izle (opsiyonel, sessiz)
+  if (!match.lastUsedAt) {
+    match.lastUsedAt = Date.now();
+    markDirty();
   }
   next();
 }

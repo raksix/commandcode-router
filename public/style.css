@@ -93,8 +93,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .row-form input { flex: 1; min-width: 140px; }
 
 /* ---- master key ---- */
-.masterkey-row { display: flex; gap: 10px; }
-.masterkey-row input { flex: 1; }
+.masterkeys td { font-size: 13px; }
 
 /* ---- tables ---- */
 table { width: 100%; border-collapse: collapse; }

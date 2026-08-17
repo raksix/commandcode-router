@@ -44,13 +44,20 @@
 
     <!-- Master key card -->
     <section class="card">
-      <h2>🔑 Master API Key</h2>
-      <p class="hint">Claude Code ve diğer istemciler bu key ile proxy'ye bağlanır.</p>
-      <div class="masterkey-row">
-        <input id="master-key" class="mono" readonly placeholder="Yükleniyor..." />
-        <button id="copy-key" class="btn">Kopyala</button>
-        <button id="regen-key" class="btn btn-danger">Yenile</button>
-      </div>
+      <h2>🔑 Master API Key
+        <span class="acc-actions">
+          <button id="add-key-toggle" class="btn btn-small">+ Yeni Anahtar</button>
+        </span>
+      </h2>
+      <p class="hint">Claude Code ve diğer istemciler bu key'lerden biriyle proxy'ye bağlanır. Her key bağımsız çalışır — silersen o key'le bağlı istemciler bağlantısını kaybeder.</p>
+      <table class="masterkeys">
+        <thead><tr><th>Ad</th><th>Key</th><th>Son Kullanım</th><th></th></tr></thead>
+        <tbody id="masterkeys-body"></tbody>
+      </table>
+      <form id="add-key-form" class="hidden row-form">
+        <input id="new-key-name" placeholder="Anahtar adı (örn. MacBook, VPS, Yasemin)" />
+        <button type="submit" class="btn btn-primary">Oluştur</button>
+      </form>
       <div class="hint" id="new-key-hint" style="color:#e0b341"></div>
     </section>
 

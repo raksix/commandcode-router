@@ -130,12 +130,8 @@ async function refresh() {
   $('#stat-banned').textContent = status.accounts.filter(a => a.banned).length;
   $('#rr-index').textContent = `Sıra: ${status.roundRobinIndex}`;
 
-  // master key
-  const mk = $('#master-key');
-  if (!mk.dataset.full) {
-    mk.value = status.masterKeyMasked;
-    mk.dataset.full = status.masterKeyMasked;
-  }
+  // master keys
+  renderMasterKeys(status.masterKeys || []);
 
   // accounts
   renderAccounts(status.accounts);
@@ -152,6 +148,32 @@ async function refresh() {
       exposedSelection = next;
       renderExposedList();
     }
+  }
+}
+
+function renderMasterKeys(keys) {
+  const tbody = $('#masterkeys-body');
+  tbody.innerHTML = '';
+  if (!keys.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="hint">Henüz anahtar yok.</td></tr>';
+    return;
+  }
+  for (const k of keys) {
+    const tr = document.createElement('tr');
+    const lastUsed = k.lastUsedAt
+      ? new Date(k.lastUsedAt).toLocaleString('tr-TR')
+      : '—';
+    tr.innerHTML = `
+      <td class="mono">${esc(k.name)}</td>
+      <td class="mono">${esc(k.keyMasked)}</td>
+      <td class="small">${esc(lastUsed)}</td>
+      <td style="text-align:right">
+        <button class="btn btn-small copy-key" data-id="${esc(k.id)}" title="Bu key'i kopyala">Kopyala</button>
+        <button class="btn btn-small regen-key" data-id="${esc(k.id)}" title="Yeni key üret, eskisini iptal et">Yenile</button>
+        <button class="btn btn-small btn-danger del-key" data-id="${esc(k.id)}" title="Bu key'i sil">Sil</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
   }
 }
 
@@ -405,22 +427,68 @@ function setCcAuthStatus(el, msg) {
 $('#ccauth-add-btn').addEventListener('click', () => startCcAuth($('#ccauth-add-btn'), $('#ccauth-status')));
 $('#ccauth-inline-btn').addEventListener('click', () => startCcAuth($('#ccauth-inline-btn'), $('#ccauth-add-status')));
 
-// ---- master key actions ----
-$('#copy-key').addEventListener('click', () => {
-  const mk = $('#master-key');
-  if (mk.dataset.full) {
-    navigator.clipboard.writeText(mk.dataset.full).then(() => toast('Kopyalandı 📋'));
+// ---- master key actions (çoklu key) ----
+// delegation: tablo içindeki butonlar dinamik olduğu için tbody'ye tek listener
+$('#masterkeys-body').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const row = btn.closest('tr');
+  const keyText = row?.querySelector('td:nth-child(2)')?.textContent || '';
+
+  if (btn.classList.contains('copy-key')) {
+    // masked key kopyalanamaz — tam key'i API'den iste
+    try {
+      const r = await api(`/api/master-key/${id}/reveal`, { method: 'GET' });
+      if (r.key) {
+        await navigator.clipboard.writeText(r.key);
+        toast('Anahtar kopyalandı 📋');
+      } else {
+        toast('Anahtar alınamadı', 'err');
+      }
+    } catch (err) { toast(err.message, 'err'); }
+    return;
+  }
+
+  if (btn.classList.contains('regen-key')) {
+    if (!confirm('Bu anahtar yenilensin mi? Eski key ile bağlı istemciler bağlantısını kaybeder.')) return;
+    try {
+      const r = await api(`/api/master-key/${id}/regenerate`, { method: 'POST' });
+      toast(`Yeni anahtar: ${r.key.key}`);
+      refresh();
+    } catch (err) { toast(err.message, 'err'); }
+    return;
+  }
+
+  if (btn.classList.contains('del-key')) {
+    if (!confirm('Bu anahtar silinsin mi? Bu key ile bağlı istemciler bağlantısını kaybeder.')) return;
+    try {
+      await api(`/api/master-key/${id}`, { method: 'DELETE' });
+      toast('Anahtar silindi 🗑️');
+      refresh();
+    } catch (err) { toast(err.message, 'err'); }
+    return;
   }
 });
 
-$('#regen-key').addEventListener('click', async () => {
-  if (!confirm('Master key yenilensin mi? Eski key ile bağlı tüm istemciler bağlantısını kaybeder.')) return;
-  const r = await api('/api/master-key', { method: 'POST' });
-  $('#master-key').value = r.masterKey;
-  $('#master-key').dataset.full = r.masterKey;
-  const hint = $('#new-key-hint');
-  hint.textContent = `Yeni key: ${r.masterKey} (kopyala: yukarıdaki kutuya tıkla)`;
-  toast('Master key yenilendi 🔑');
+// + Yeni Anahtar toggle
+$('#add-key-toggle').addEventListener('click', () => {
+  $('#add-key-form').classList.toggle('hidden');
+  $('#new-key-name').focus();
+});
+
+// Yeni anahtar oluştur
+$('#add-key-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = $('#new-key-name').value.trim();
+  try {
+    const r = await api('/api/master-key', { method: 'POST', body: JSON.stringify({ name }) });
+    const hint = $('#new-key-hint');
+    hint.textContent = `🔑 Yeni anahtar oluşturuldu: ${r.key.key} — şimdi kopyala, bir daha gösterilmez!`;
+    $('#new-key-name').value = '';
+    $('#add-key-form').classList.add('hidden');
+    refresh();
+  } catch (err) { toast(err.message, 'err'); }
 });
 
 // ---- init: session varsa login ekranına takılma, direkt dashboard ----

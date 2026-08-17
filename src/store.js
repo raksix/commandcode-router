@@ -11,7 +11,8 @@ const STATE_PATH = path.join(ROOT_DIR, 'state.json');
 
 const DEFAULT_CONFIG = {
   port: 3000,
-  masterKey: null,
+  masterKey: null,          // legacy: tek key (migrasyon için korunur)
+  masterKeys: [],           // çoklu key: [{ id, name, key, createdAt, lastUsedAt }]
   adminPassword: null,
   accounts: [],
   // /v1/models API'sinde sunulacak modeller. Boşsa = CommandCode'daki TÜM modeller döner.
@@ -56,6 +57,23 @@ export async function load() {
   }
   // merge defaults so new fields don't break old configs
   data.config = { ...structuredClone(DEFAULT_CONFIG), ...data.config };
+
+  // --- migration: legacy tek masterKey -> masterKeys array ---
+  if (!Array.isArray(data.config.masterKeys) || data.config.masterKeys.length === 0) {
+    if (data.config.masterKey) {
+      data.config.masterKeys = [{
+        id: crypto.randomUUID(),
+        name: 'Anahtar 1',
+        key: data.config.masterKey,
+        createdAt: Date.now(),
+        lastUsedAt: null
+      }];
+      await saveConfig();
+      console.log('[store] Legacy masterKey → masterKeys dizisine taşındı.');
+    } else {
+      data.config.masterKeys = [];
+    }
+  }
 
   // state.json (optional — regenerated silently)
   try {
