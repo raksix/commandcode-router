@@ -24,6 +24,21 @@ body {
 .hidden { display: none !important; }
 .mono { font-family: var(--mono); }
 
+/* ---- lucide-style inline icons ---- */
+.ic {
+  width: 18px; height: 18px; fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  vertical-align: -3px; flex-shrink: 0;
+}
+.ic-xs { width: 13px; height: 13px; vertical-align: -2px; }
+.ic-sm { width: 15px; height: 15px; }
+h2 .ic { margin-right: 6px; }
+h3 .ic { margin-right: 5px; }
+.side-icon { width: 17px; height: 17px; }
+.side-link .ic { color: var(--muted); }
+.side-link.active .ic { color: #9db9ff; }
+.btn .ic { margin-right: 4px; }
+
 .screen { max-width: 960px; margin: 0 auto; padding: 24px; }
 
 /* ---- loading screen ---- */

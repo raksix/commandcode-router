@@ -143,7 +143,7 @@ function renderExposedList() {
   }
   el.innerHTML = ccModelDetails.map((m) => {
     const on = exposedSelection.has(m.id);
-    return `<span class="model-chip ${on ? 'chip-on' : ''}" data-id="${esc(m.id)}" title="Tıkla: ${on ? 'kaldır' : 'seç'}">${esc(m.id)}${on ? ' ✓' : ''}</span>`;
+    return `<span class="model-chip ${on ? 'chip-on' : ''}" data-id="${esc(m.id)}" title="Tıkla: ${on ? 'kaldır' : 'seç'}">${esc(m.id)}${on ? ' <svg class="ic ic-xs"><use href="/assets/sprite.svg#i-circle-check"/></svg>' : ''}</span>`;
   }).join('');
   el.querySelectorAll('.model-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
@@ -228,7 +228,7 @@ function renderAccounts(accounts) {
     const tr = document.createElement('tr');
 
     const statusBadge = a.banned
-      ? '<span class="badge badge-ban">🚫 Banlı</span>'
+      ? '<span class="badge badge-ban"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-ban"/></svg> Banlı</span>'
       : a.isActive
         ? '<span class="badge badge-ok">Aktif</span>'
         : '<span class="badge badge-off">Pasif</span>';
@@ -237,7 +237,7 @@ function renderAccounts(accounts) {
       <td><span class="acc-name">${esc(a.name)}</span></td>
       <td class="key-cell">
         <span class="key-val">${maskKey(a.apiKeyMasked)}</span>
-        <button class="eye-btn" title="Tam keyi gör">👁</button>
+        <button class="eye-btn" title="Tam keyi gör"><svg class="ic ic-sm"><use href="/assets/sprite.svg#i-eye"/></svg></button>
       </td>
       <td>${statusBadge}${a.banned ? `<div class="hint">${esc(a.lastError || '')}</div>` : ''}</td>
       <td>${a.totalRequests}</td>
@@ -259,8 +259,11 @@ function renderAccounts(accounts) {
       if (full?.apiKey) {
         const v = tr.querySelector('.key-val');
         v.textContent = full.apiKey;
-        eye.textContent = '🙈';
-        setTimeout(() => { v.textContent = maskKey(a.apiKeyMasked); eye.textContent = '👁'; }, 8000);
+        eye.innerHTML = '<svg class="ic ic-sm"><use href="/assets/sprite.svg#i-eye-off"/></svg>';
+        setTimeout(() => {
+          v.textContent = maskKey(a.apiKeyMasked);
+          eye.innerHTML = '<svg class="ic ic-sm"><use href="/assets/sprite.svg#i-eye"/></svg>';
+        }, 8000);
       }
     });
 
@@ -268,8 +271,8 @@ function renderAccounts(accounts) {
       toast(`"${a.name}" test ediliyor...`);
       const r = await api(`/api/accounts/${a.id}/test`, { method: 'POST' });
       toast(r.ok
-        ? `✅ "${a.name}" çalışıyor (${r.ms}ms, ${r.modelsCount ?? '?'} model)`
-        : `❌ ${a.name}: HTTP ${r.status} — ${r.detail || ''}`.slice(0, 90),
+        ? `"${a.name}" çalışıyor (${r.ms}ms, ${r.modelsCount ?? '?'} model)`
+        : `${a.name}: HTTP ${r.status} — ${r.detail || ''}`.slice(0, 90),
         r.ok ? 'ok' : 'err');
     });
 
@@ -332,7 +335,7 @@ function renderDaily(daily) {
   // token grafiği: mavi = girdi, turuncu = çıktı (son 14 gün)
   const maxTok = Math.max(...days.map((d2) => Math.max(d2.inputTokens || 0, d2.outputTokens || 0)), 1);
   const tchartHtml = days.map((d2) => `
-    <div class="bar-col" title="${d2.day}: ⬇ ${fmtNum(d2.inputTokens || 0)} / ⬆ ${fmtNum(d2.outputTokens || 0)} token">
+    <div class="bar-col" title="${d2.day}: in ${fmtNum(d2.inputTokens || 0)} / out ${fmtNum(d2.outputTokens || 0)} token">
       <div class="bar-wrap">
         <div class="bar bar-in" style="height:${Math.round(((d2.inputTokens || 0) / maxTok) * 100)}%"></div>
         <div class="bar bar-out" style="height:${Math.round(((d2.outputTokens || 0) / maxTok) * 100)}%"></div>
@@ -368,7 +371,7 @@ function renderLogs(logs) {
       <td class="small">${esc(l.account || '—')}</td>
       <td class="small"><span class="status-chip ${bad ? 'st-err' : 'st-ok'}">${l.status}</span></td>
       <td class="small">${l.ms}ms</td>
-      <td class="mono small token-chip">${hasTokens ? `${fmtNum(l.inputTokens || 0)}/⬆${fmtNum(l.outputTokens || 0)}` : '—'}</td>
+      <td class="mono small token-chip">${hasTokens ? `${fmtNum(l.inputTokens || 0)}/${fmtNum(l.outputTokens || 0)}` : '—'}</td>
       <td class="mono small hint">${esc(l.detail || '')}</td>
     `;
     tbody.appendChild(tr);
@@ -396,7 +399,7 @@ $('#add-account-form').addEventListener('submit', async (e) => {
     $('#acc-name').value = '';
     $('#acc-key').value = '';
     $('#add-account-form').classList.add('hidden');
-    toast('Hesap eklendi ✅');
+    toast('Hesap eklendi');
     refresh();
   } catch (err) { toast(err.message, 'err'); }
 });
@@ -453,10 +456,10 @@ async function startCcAuth(btn, statusEl) {
         const st = await api(`/api/commandcode-auth/status?state=${encodeURIComponent(ccauthState)}`);
         if (st.status === 'received') {
           clearInterval(ccauthPoll); ccauthPoll = null;
-          setCcAuthStatus(statusEl, 'Key alındı ✅ hesaba ekleniyor...');
+          setCcAuthStatus(statusEl, 'Key alındı — hesaba ekleniyor...');
           await api('/api/commandcode-auth/apply', { method: 'POST', body: JSON.stringify({ state: ccauthState }) });
           btn.disabled = false; btn.textContent = "CommandCode'a Git";
-          toast('Hesap eklendi ✅');
+          toast('Hesap eklendi');
           ccauthState = null;
           // dashboard görünürse listeyi tazele
           if (!$('#dashboard').classList.contains('hidden')) refresh();
@@ -464,7 +467,7 @@ async function startCcAuth(btn, statusEl) {
       } catch {}
     }, 2000);
   } catch (err) {
-    setCcAuthStatus(statusEl, `❌ ${err.message}`);
+    setCcAuthStatus(statusEl, `Hata: ${err.message}`);
   }
 }
 
@@ -490,7 +493,7 @@ $('#masterkeys-body').addEventListener('click', async (e) => {
       const r = await api(`/api/master-key/${id}/reveal`, { method: 'GET' });
       if (r.key) {
         await navigator.clipboard.writeText(r.key);
-        toast('Anahtar kopyalandı 📋');
+        toast('Anahtar kopyalandı');
       } else {
         toast('Anahtar alınamadı', 'err');
       }
@@ -512,7 +515,7 @@ $('#masterkeys-body').addEventListener('click', async (e) => {
     if (!confirm('Bu anahtar silinsin mi? Bu key ile bağlı istemciler bağlantısını kaybeder.')) return;
     try {
       await api(`/api/master-key/${id}`, { method: 'DELETE' });
-      toast('Anahtar silindi 🗑️');
+      toast('Anahtar silindi');
       refresh();
     } catch (err) { toast(err.message, 'err'); }
     return;
@@ -532,7 +535,7 @@ $('#add-key-form').addEventListener('submit', async (e) => {
   try {
     const r = await api('/api/master-key', { method: 'POST', body: JSON.stringify({ name }) });
     const hint = $('#new-key-hint');
-    hint.textContent = `🔑 Yeni anahtar oluşturuldu: ${r.key.key} — şimdi kopyala, bir daha gösterilmez!`;
+    hint.textContent = `Yeni anahtar oluşturuldu: ${r.key.key} — şimdi kopyala, bir daha gösterilmez!`;
     $('#new-key-name').value = '';
     $('#add-key-form').classList.add('hidden');
     refresh();

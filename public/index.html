@@ -7,14 +7,17 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>CommandCode Router</title>
-  <link rel="stylesheet" href="/assets/style.css?v=6" />
+  <link rel="stylesheet" href="/assets/style.css?v=7" />
 </head>
 <body>
   <!-- Loading screen (sayfa açılışında görünür, dashboard hazır olunca kaybolur) -->
   <div id="loading-screen" class="loading-screen">
     <div class="loading-box">
       <div class="loading-spinner"></div>
-      <div class="loading-text">🔀 CommandCode Router yükleniyor...</div>
+      <div class="loading-text">
+        <svg class="ic ic-sm"><use href="/assets/sprite.svg#i-shuffle"/></svg>
+        CommandCode Router yükleniyor...
+      </div>
       <div class="loading-sub" id="loading-sub">Paneli hazırlıyoruz</div>
     </div>
   </div>
@@ -22,7 +25,7 @@
   <!-- Login screen -->
   <div id="login-screen" class="screen">
     <div class="login-card">
-      <h1>🔀 CommandCode Router</h1>
+      <h1><svg class="ic"><use href="/assets/sprite.svg#i-shuffle"/></svg> CommandCode Router</h1>
       <p class="sub">Yönetim paneline giriş</p>
       <form id="login-form">
         <input type="password" id="login-password" placeholder="Admin şifresi" autocomplete="current-password" required />
@@ -36,28 +39,28 @@
   <div id="dashboard" class="screen dashboard hidden">
     <!-- Sidebar -->
     <aside class="sidebar">
-      <div class="sidebar-brand">🔀 CommandCode Router</div>
+      <div class="sidebar-brand"><svg class="ic"><use href="/assets/sprite.svg#i-shuffle"/></svg> CommandCode Router</div>
       <nav class="sidebar-nav">
         <a href="#overview" class="side-link active" data-section="overview">
-          <span class="side-icon">📊</span> Genel Bakış
+          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-layout-dashboard"/></svg> Genel Bakış
         </a>
         <a href="#keys" class="side-link" data-section="keys">
-          <span class="side-icon">🔑</span> API Anahtarları
+          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-key"/></svg> API Anahtarları
         </a>
         <a href="#accounts" class="side-link" data-section="accounts">
-          <span class="side-icon">👥</span> Hesaplar
+          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-users"/></svg> Hesaplar
         </a>
         <a href="#models" class="side-link" data-section="models">
-          <span class="side-icon">🤖</span> Modeller
+          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-bot"/></svg> Modeller
         </a>
         <a href="#stats" class="side-link" data-section="stats">
-          <span class="side-icon">📈</span> İstatistikler
+          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-chart-bar"/></svg> İstatistikler
         </a>
         <a href="#logs" class="side-link" data-section="logs">
-          <span class="side-icon">📜</span> Loglar
+          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-scroll-text"/></svg> Loglar
         </a>
         <a href="#docs" class="side-link" data-section="docs">
-          <span class="side-icon">📚</span> API Dokümanı
+          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-book-open"/></svg> API Dokümanı
         </a>
       </nav>
       <div class="sidebar-footer">
@@ -70,7 +73,7 @@
     <main class="main">
       <!-- Genel Bakış -->
       <section class="card section" id="section-overview" data-section-panel="overview">
-        <h2>📊 Genel Bakış</h2>
+        <h2><svg class="ic"><use href="/assets/sprite.svg#i-layout-dashboard"/></svg> Genel Bakış</h2>
         <p class="hint">Proxy durumu ve genel kullanım özeti.</p>
         <div class="stats-strip">
           <div class="stat"><div class="stat-val" id="stat-total">0</div><div class="stat-lbl">Toplam istek</div></div>
@@ -87,9 +90,9 @@
 
       <!-- API Anahtarları -->
       <section class="card section" id="section-keys" data-section-panel="keys">
-        <h2>🔑 API Anahtarları
+        <h2><svg class="ic"><use href="/assets/sprite.svg#i-key"/></svg> API Anahtarları
           <span class="acc-actions">
-            <button id="add-key-toggle" class="btn btn-small">+ Yeni Anahtar</button>
+            <button id="add-key-toggle" class="btn btn-small"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-plus"/></svg> Yeni Anahtar</button>
           </span>
         </h2>
         <p class="hint">Claude Code ve diğer istemciler bu key'lerden biriyle proxy'ye bağlanır. Her key bağımsız çalışır — silersen o key'le bağlı istemciler bağlantısını kaybeder.</p>
@@ -106,10 +109,10 @@
 
       <!-- Hesaplar -->
       <section class="card section" id="section-accounts" data-section-panel="accounts">
-        <h2>👥 Hesaplar
+        <h2><svg class="ic"><use href="/assets/sprite.svg#i-users"/></svg> Hesaplar
           <span class="acc-actions">
-            <button id="ccauth-add-btn" class="btn btn-small">➕ CommandCode'dan Ekle</button>
-            <button id="add-account-toggle" class="btn btn-small">+ Hesap Ekle</button>
+            <button id="ccauth-add-btn" class="btn btn-small"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-plus"/></svg> CommandCode'dan Ekle</button>
+            <button id="add-account-toggle" class="btn btn-small"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-plus"/></svg> Hesap Ekle</button>
           </span>
         </h2>
         <form id="add-account-form" class="hidden row-form">
@@ -133,23 +136,23 @@
 
       <!-- Modeller -->
       <section class="card section" id="section-models" data-section-panel="models">
-        <h2>🤖 Modeller
+        <h2><svg class="ic"><use href="/assets/sprite.svg#i-bot"/></svg> Modeller
           <span class="acc-actions">
-            <button id="refresh-models-btn" class="btn btn-small">🔄 Yenile</button>
+            <button id="refresh-models-btn" class="btn btn-small"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-refresh-cw"/></svg> Yenile</button>
             <button id="expose-all-btn" class="btn btn-small">Tümünü Göster</button>
             <button id="expose-save-btn" class="btn btn-small btn-primary">Kaydet</button>
           </span>
         </h2>
         <p class="hint">CommandCode API'den çekilen güncel model listesi. "API'de Sunulan Modeller" bölümünden <code>/v1/models</code>'te gösterilecekleri seç.</p>
         <div class="model-list" id="model-list"></div>
-        <h3 style="margin-top:20px;font-size:14px">🌐 API'de Sunulan Modeller</h3>
+        <h3 style="margin-top:20px;font-size:14px"><svg class="ic"><use href="/assets/sprite.svg#i-globe"/></svg> API'de Sunulan Modeller</h3>
         <p class="hint">Claude Code'a (<code>/v1/models</code>) gösterilecek model adları. Aşağıdan seç — seçilenler API'de listelenir, isteklerde kullanılabilir. "Tümünü Göster" = filtresiz.</p>
         <div class="model-list" id="exposed-list"></div>
       </section>
 
       <!-- İstatistikler -->
       <section class="card section" id="section-stats" data-section-panel="stats">
-        <h2>📈 İstatistikler</h2>
+        <h2><svg class="ic"><use href="/assets/sprite.svg#i-chart-bar"/></svg> İstatistikler</h2>
         <div class="stats-grid">
           <div class="stat-box"><div class="stat-val" id="daily-total">0</div><div class="stat-lbl">Bugün toplam</div></div>
           <div class="stat-box"><div class="stat-val green" id="daily-success">0</div><div class="stat-lbl">Bugün başarılı</div></div>
@@ -157,8 +160,8 @@
           <div class="stat-box"><div class="stat-val" id="daily-rate">%0</div><div class="stat-lbl">Başarı oranı</div></div>
         </div>
         <div class="stats-grid token-grid">
-          <div class="stat-box"><div class="stat-val token-in" id="daily-input">0</div><div class="stat-lbl">⬇ Girdi token</div></div>
-          <div class="stat-box"><div class="stat-val token-out" id="daily-output">0</div><div class="stat-lbl">⬆ Çıktı token</div></div>
+          <div class="stat-box"><div class="stat-val token-in" id="daily-input">0</div><div class="stat-lbl"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-arrow-down"/></svg> Girdi token</div></div>
+          <div class="stat-box"><div class="stat-val token-out" id="daily-output">0</div><div class="stat-lbl"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-arrow-up"/></svg> Çıktı token</div></div>
           <div class="stat-box"><div class="stat-val" id="daily-tokens">0</div><div class="stat-lbl">Toplam token</div></div>
         </div>
         <div class="mini-bar" id="daily-chart2"></div>
@@ -169,7 +172,7 @@
 
       <!-- Loglar -->
       <section class="card section" id="section-logs" data-section-panel="logs">
-        <h2>📜 İstek Logları
+        <h2><svg class="ic"><use href="/assets/sprite.svg#i-scroll-text"/></svg> İstek Logları
           <button id="logs-clear-btn" class="btn btn-small btn-danger">Temizle</button>
         </h2>
         <p class="hint">Son istekler — hangi hesap, hangi model, hangi durum. Hata (4xx/5xx) satırları kırmızı işaretlenir.</p>
@@ -185,10 +188,10 @@
 
       <!-- API Dokümanı -->
       <section class="card section" id="section-docs" data-section-panel="docs">
-        <h2>📚 API Dokümanı</h2>
+        <h2><svg class="ic"><use href="/assets/sprite.svg#i-book-open"/></svg> API Dokümanı</h2>
         <p class="hint">Router'ın dışarıya açtığı uç noktalar. İstemci bağlarken bu adresleri kullan.</p>
 
-        <h3 style="font-size:15px;margin:18px 0 8px">🔗 Endpoint'ler</h3>
+        <h3 style="font-size:15px;margin:18px 0 8px"><svg class="ic"><use href="/assets/sprite.svg#i-link"/></svg> Endpoint'ler</h3>
         <table class="doc-table">
           <thead><tr><th>Metod</th><th>Yol</th><th>Açıklama</th></tr></thead>
           <tbody>
@@ -210,15 +213,15 @@
           </tbody>
         </table>
 
-        <h3 style="font-size:15px;margin:22px 0 8px">🚀 İstemci Bağlama</h3>
+        <h3 style="font-size:15px;margin:22px 0 8px"><svg class="ic"><use href="/assets/sprite.svg#i-rocket"/></svg> İstemci Bağlama</h3>
         <p class="hint">Claude Code'u bu proxy'ye bağlamak için:</p>
         <pre class="code-block"><code>ANTHROPIC_BASE_URL=https://commandcode-router.fermag.com.tr
 ANTHROPIC_AUTH_TOKEN=&lt;masterKey&gt;
 # Modeli netleştirmek istersen:
 ANTHROPIC_MODEL=claude-sonnet-5</code></pre>
-        <p class="hint">⚠️ <code>ANTHROPIC_BASE_URL</code> sonuna <code>/v1</code> <b>EKLEME</b> — Claude Code kendisi <code>/v1/messages</code> ekler.</p>
+        <p class="hint"><svg class="ic ic-xs" style="color:var(--yellow)"><use href="/assets/sprite.svg#i-shield"/></svg> <code>ANTHROPIC_BASE_URL</code> sonuna <code>/v1</code> <b>EKLEME</b> — Claude Code kendisi <code>/v1/messages</code> ekler.</p>
 
-        <h3 style="font-size:15px;margin:22px 0 8px">🧪 cURL ile Test</h3>
+        <h3 style="font-size:15px;margin:22px 0 8px"><svg class="ic"><use href="/assets/sprite.svg#i-flask-conical"/></svg> cURL ile Test</h3>
         <pre class="code-block"><code># Model listesi
 curl https://commandcode-router.fermag.com.tr/v1/models \
   -H "Authorization: Bearer &lt;masterKey&gt;"
@@ -230,7 +233,7 @@ curl -X POST https://commandcode-router.fermag.com.tr/v1/messages \
   -H "anthropic-version: 2023-06-01" \
   -d '{"model":"claude-sonnet-5","max_tokens":100,"stream":true,"messages":[{"role":"user","content":"selam"}]}'</code></pre>
 
-        <h3 style="font-size:15px;margin:22px 0 8px">💡 Notlar</h3>
+        <h3 style="font-size:15px;margin:22px 0 8px"><svg class="ic"><use href="/assets/sprite.svg#i-lightbulb"/></svg> Notlar</h3>
         <ul class="doc-notes">
           <li>Havuzdaki hesaplar <b>round-robin</b> ile döner; bir hesap hata verirse sıradakine geçilir (max 2 retry).</li>
           <li>Ardışık 5 hata sonrası hesap <b>otomatik banlanır</b> (panelden kaldırılır).</li>
@@ -244,6 +247,6 @@ curl -X POST https://commandcode-router.fermag.com.tr/v1/messages \
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/assets/app.js?v=6"></script>
+  <script src="/assets/app.js?v=7"></script>
 </body>
 </html>
