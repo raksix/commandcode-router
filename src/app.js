@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { proxyRouter } from './routes/proxy.js';
 import { adminRouter } from './routes/admin.js';
-import { cookieParser, requireAdmin } from './auth.js';
+import { cookieParser } from './auth.js';
 import { ROOT_DIR } from './store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,14 +32,13 @@ export function createApp() {
   // ---- admin API ----
   app.use('/api', adminRouter);
 
-  // ---- static admin panel assets (served directly; UI logic is protected by session on /) ----
+  // ---- static admin panel ----
+  // index.html is public so the login screen always renders;
+  // the /api/* endpoints and the dashboard refresh() call enforce auth.
   app.use('/assets', express.static(PUBLIC_DIR, { maxAge: '1h' }));
-  // index.html is served by the login-protected route below
 
-  app.get('/', (req, res, next) => {
-    requireAdmin(req, res, () => {
-      res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-    });
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
   });
 
   return app;
