@@ -38,11 +38,13 @@ $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const password = $('#login-password').value.trim();
   if (!password) { $('#login-error').textContent = 'Şifre boş olamaz'; $('#login-error').classList.remove('hidden'); return; }
+  showLoading('Giriş yapılıyor...');
   try {
     await api('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
     $('#login-error').classList.add('hidden');
-    showDashboard();
+    await showDashboard();
   } catch (err) {
+    hideLoading();
     $('#login-error').textContent = err.message || 'Giriş hatası';
     $('#login-error').classList.remove('hidden');
   }
@@ -60,6 +62,21 @@ async function showDashboard() {
   await loadModels();
   await refresh();
   setInterval(refresh, 10000); // auto-refresh stats every 10s
+  hideLoading();
+}
+
+// ---- loading screen ----
+function showLoading(msg) {
+  const el = $('#loading-screen');
+  if (el) {
+    el.classList.remove('hidden');
+    const sub = $('#loading-sub');
+    if (sub && msg) sub.textContent = msg;
+  }
+}
+function hideLoading() {
+  const el = $('#loading-screen');
+  if (el) el.classList.add('hidden');
 }
 
 // ---- sidebar section navigation ----
@@ -526,9 +543,13 @@ $('#add-key-form').addEventListener('submit', async (e) => {
 (async function init() {
   try {
     const status = await api('/api/status');
-    if (status && status.stats) showDashboard(); // oturum geçerli → direkt içeri
+    if (status && status.stats) {
+      await showDashboard(); // oturum geçerli → direkt içeri
+    } else {
+      hideLoading(); // status var ama stats yok → login göster
+    }
   } catch {
-    // oturum yok/expired → login ekranı zaten görünüyor, kal
+    hideLoading(); // oturum yok/expired → login ekranı zaten görünüyor, kal
   }
 })();
 

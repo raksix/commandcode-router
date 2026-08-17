@@ -7,9 +7,18 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>CommandCode Router</title>
-  <link rel="stylesheet" href="/assets/style.css?v=5" />
+  <link rel="stylesheet" href="/assets/style.css?v=6" />
 </head>
 <body>
+  <!-- Loading screen (sayfa açılışında görünür, dashboard hazır olunca kaybolur) -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">🔀 CommandCode Router yükleniyor...</div>
+      <div class="loading-sub" id="loading-sub">Paneli hazırlıyoruz</div>
+    </div>
+  </div>
+
   <!-- Login screen -->
   <div id="login-screen" class="screen">
     <div class="login-card">
@@ -235,6 +244,6 @@ curl -X POST https://commandcode-router.fermag.com.tr/v1/messages \
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/assets/app.js?v=5"></script>
+  <script src="/assets/app.js?v=6"></script>
 </body>
 </html>

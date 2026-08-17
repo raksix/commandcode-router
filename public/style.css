@@ -26,6 +26,24 @@ body {
 
 .screen { max-width: 960px; margin: 0 auto; padding: 24px; }
 
+/* ---- loading screen ---- */
+.loading-screen {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .3s ease;
+}
+.loading-screen.hidden { opacity: 0; pointer-events: none; }
+.loading-box { text-align: center; }
+.loading-spinner {
+  width: 44px; height: 44px; margin: 0 auto 16px;
+  border: 4px solid #232837; border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 16px; font-weight: 600; color: var(--text); }
+.loading-sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
 /* ---- login ---- */
 #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
 .login-card {
