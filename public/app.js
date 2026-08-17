@@ -4,6 +4,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 async function api(path, opts = {}) {
   const res = await fetch(path, {
+    cache: 'no-store', // tarayıcı cache'ini kapat — hep taze veri
     headers: { 'Content-Type': 'application/json' },
     ...opts,
   });
@@ -363,6 +364,16 @@ $('#regen-key').addEventListener('click', async () => {
   hint.textContent = `Yeni key: ${r.masterKey} (kopyala: yukarıdaki kutuya tıkla)`;
   toast('Master key yenilendi 🔑');
 });
+
+// ---- init: session varsa login ekranına takılma, direkt dashboard ----
+(async function init() {
+  try {
+    const status = await api('/api/status');
+    if (status && status.stats) showDashboard(); // oturum geçerli → direkt içeri
+  } catch {
+    // oturum yok/expired → login ekranı zaten görünüyor, kal
+  }
+})();
 
 // ---- escape helper ----
 function esc(s) {
