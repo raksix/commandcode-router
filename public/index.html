@@ -215,19 +215,19 @@
 
         <h3 style="font-size:15px;margin:22px 0 8px"><svg class="ic"><use href="/assets/sprite.svg#i-rocket"/></svg> İstemci Bağlama</h3>
         <p class="hint">Claude Code'u bu proxy'ye bağlamak için:</p>
-        <pre class="code-block"><code>ANTHROPIC_BASE_URL=https://commandcode-router.fermag.com.tr
+        <pre class="code-block"><code>ANTHROPIC_BASE_URL=http://localhost:3025
 ANTHROPIC_AUTH_TOKEN=&lt;masterKey&gt;
 # Modeli netleştirmek istersen:
-ANTHROPIC_MODEL=claude-sonnet-5</code></pre>
+ANTHROPIC_MODEL=deepseek/deepseek-v4-flash</code></pre>
         <p class="hint"><svg class="ic ic-xs" style="color:var(--yellow)"><use href="/assets/sprite.svg#i-shield"/></svg> <code>ANTHROPIC_BASE_URL</code> sonuna <code>/v1</code> <b>EKLEME</b> — Claude Code kendisi <code>/v1/messages</code> ekler.</p>
 
         <h3 style="font-size:15px;margin:22px 0 8px"><svg class="ic"><use href="/assets/sprite.svg#i-flask-conical"/></svg> cURL ile Test</h3>
         <pre class="code-block"><code># Model listesi
-curl https://commandcode-router.fermag.com.tr/v1/models \
+curl http://localhost:3025/v1/models \
   -H "Authorization: Bearer &lt;masterKey&gt;"
 
 # Mesaj gönder (stream)
-curl -X POST https://commandcode-router.fermag.com.tr/v1/messages \
+curl -X POST http://localhost:3025/v1/messages \
   -H "Authorization: Bearer &lt;masterKey&gt;" \
   -H "Content-Type: application/json" \
   -H "anthropic-version: 2023-06-01" \

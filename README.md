@@ -4,9 +4,9 @@ Anthropic-compatible API proxy. Claude Code (or any Anthropic SDK client) connec
 
 ```
 Claude Code ──(masterKey)──► Router ──(round-robin)──► CommandCode account 1
-   (Anthropic format)         :3025  ├──► CommandCode account 2
-                                    ├──► ...
-                                    └──► CommandCode account 10
+   (Anthropic format)                 ├──► CommandCode account 2
+                                     ├──► ...
+                                     └──► CommandCode account 10
 ```
 
 ## Features
@@ -16,9 +16,9 @@ Claude Code ──(masterKey)──► Router ──(round-robin)──► Comma
 - **Round-robin distribution** — every request goes to the next account (order survives restarts)
 - **Auto-fallback** — on 401/429/5xx switches to the next account (max 2 retries)
 - **Auto-ban** — after 5 consecutive errors an account is disabled and can be removed from the panel
-- **Multiple master API keys** — create named keys (MacBook, VPS, ...), copy/regenerate/delete each independently
+- **Multiple master API keys** — create named keys, copy/regenerate/delete each independently
 - **Web panel** — add/remove/test accounts, manage keys, model list, per-account stats, request logs, API docs
-- **Model prefix stripping** — strips gateway prefixes (`anthropic:cmd/...` → `cmd/...`) so CommandCode never rejects the model name
+- **Model prefix stripping** — strips gateway prefixes (`anthropic:cmd/...` → `cmd/...`) so the model name is never rejected upstream
 - **OSS model conversion** — deepseek/gpt/... models sent via `/v1/messages` are auto-converted to OpenAI format (`/v1/chat/completions`)
 
 ## Setup
@@ -34,16 +34,16 @@ On first launch `config.json` is generated automatically and the **Master API Ke
 
 ## Usage
 
-1. Open the web panel (`http://localhost:3025` by default) and sign in with the admin password.
-2. In **Hesaplar (Accounts)**, add your CommandCode API keys via `+ Hesap Ekle`. Each key is one "account".
+1. Open the web panel (`http://localhost:<port>` — default `3025`) and sign in with the admin password.
+2. In **Accounts**, add your CommandCode API keys. Each key is one "account".
 3. Verify each account with the **Test** button (fetches the model list from CommandCode).
-4. Create a master key in **API Anahtarları (API Keys)** and point Claude Code at the proxy.
+4. Create a master key in **API Keys** and point Claude Code at the proxy.
 
 ### Connecting Claude Code
 
 ```bash
 # project-level .env or global settings (settings.json env block)
-ANTHROPIC_BASE_URL=https://commandcode-router.fermag.com.tr
+ANTHROPIC_BASE_URL=http://localhost:3025
 ANTHROPIC_AUTH_TOKEN=<masterKey>
 ```
 
@@ -58,9 +58,9 @@ ANTHROPIC_MODEL=deepseek/deepseek-v4-flash
 ### cURL test
 
 ```bash
-curl https://commandcode-router.fermag.com.tr/v1/models -H "Authorization: Bearer <masterKey>"
+curl http://localhost:3025/v1/models -H "Authorization: Bearer <masterKey>"
 
-curl -X POST https://commandcode-router.fermag.com.tr/v1/messages \
+curl -X POST http://localhost:3025/v1/messages \
   -H "Authorization: Bearer <masterKey>" \
   -H "Content-Type: application/json" \
   -H "anthropic-version: 2023-06-01" \
@@ -69,12 +69,14 @@ curl -X POST https://commandcode-router.fermag.com.tr/v1/messages \
 
 > 💡 List the available models with `GET /v1/models`. Some models (e.g. `claude-sonnet-5`, `claude-opus-5`) require a **Provider plan**; Go-plan accounts can use `deepseek/...` or other OpenAI-format models.
 
-## Configuration (config.json)
+## Configuration
+
+Runtime configuration lives in `config.json` (auto-generated, gitignored, **never commit it**):
 
 | Field | Description |
 |---|---|
 | `port` | Server port (default 3025) |
-| `masterKeys` | Array of `{ id, name, key, createdAt, lastUsedAt }` — client API keys |
+| `masterKeys` | Array of client API keys (`{ id, name, key, createdAt, lastUsedAt }`) |
 | `adminPassword` | Web panel password |
 | `accounts` | CommandCode key pool |
 | `exposedModels` | Models advertised via `/v1/models` (empty = all) |
