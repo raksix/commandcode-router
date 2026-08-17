@@ -478,6 +478,7 @@ function setCcAuthStatus(el, msg) {
 
 $('#ccauth-btn').addEventListener('click', () => startCcAuth($('#ccauth-btn'), $('#ccauth-status')));
 $('#ccauth-add-btn').addEventListener('click', () => startCcAuth($('#ccauth-add-btn'), $('#ccauth-status')));
+$('#ccauth-inline-btn').addEventListener('click', () => startCcAuth($('#ccauth-inline-btn'), $('#ccauth-add-status')));
 
 // ---- master key actions ----
 $('#copy-key').addEventListener('click', () => {

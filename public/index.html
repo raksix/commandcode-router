@@ -70,6 +70,10 @@
         <input id="acc-key" class="mono" placeholder="CommandCode API key (cmd_... veya user_...)" required />
         <button type="submit" class="btn btn-primary">Ekle</button>
       </form>
+      <div class="hint ccauth-add-hint">
+        Key yok mu? <button id="ccauth-inline-btn" class="btn btn-small btn-primary">CommandCode yap</button> — tarayıcıda CommandCode'a giriş yaparsın, key otomatik eklenir.
+      </div>
+      <div id="ccauth-add-status" class="hint" style="color:#e0b341"></div>
       <table class="accounts">
         <thead>
           <tr>
