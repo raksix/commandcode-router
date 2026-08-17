@@ -88,8 +88,23 @@ adminRouter.get('/status', (req, res) => {
     modelMap: data.config.modelMap,
     defaultModel: data.config.defaultModel,
     exposedModels: data.config.exposedModels || [],
-    retry: data.config.retry
+    retry: data.config.retry,
+    logs: data.state.logs || [],
+    daily: data.state.daily || {}
   });
+});
+
+// ---- logs: son istekler ----
+adminRouter.get('/logs', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '100', 10) || 100, 300);
+  res.json({ logs: (data.state.logs || []).slice(-limit) });
+});
+
+// ---- logs: temizle ----
+adminRouter.delete('/logs', (req, res) => {
+  data.state.logs = [];
+  markDirty();
+  res.json({ ok: true });
 });
 
 // ---- accounts CRUD ----

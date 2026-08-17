@@ -32,7 +32,9 @@ const DEFAULT_STATE = {
   accounts: {},
   stats: { totalRequests: 0, success: 0, errors: 0, byRoute: {} },
   modelsCache: { data: null, at: null },
-  sessions: {} // admin session token -> expiry ts (kalıcı login)
+  sessions: {}, // admin session token -> expiry ts (kalıcı login)
+  logs: [],     // son istek logları (max 300)
+  daily: {},    // günlük istatistik: 'YYYY-MM-DD' -> { total, success, errors, inputTokens, outputTokens }
 };
 
 /** @type {{ config: object, state: object }} */

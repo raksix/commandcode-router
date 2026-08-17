@@ -148,6 +148,10 @@ async function refresh() {
   renderAccounts(status.accounts);
   renderModelMap(status.modelMap, status.defaultModel);
 
+  // istatistik + loglar
+  renderDaily(status.daily);
+  renderLogs(status.logs);
+
   // exposed models (only reset selection if status.exposedModels changed)
   if (status.exposedModels) {
     const next = new Set(status.exposedModels);
@@ -263,6 +267,86 @@ function renderModelMap(modelMap, defaultModel) {
     tbody.appendChild(tr);
   }
 }
+
+// ---- istatistik (günlük) ----
+function renderDaily(daily) {
+  const today = new Date().toISOString().slice(0, 10);
+  const d = daily?.[today] || { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 };
+  $('#daily-total').textContent = d.total;
+  $('#daily-success').textContent = d.success;
+  $('#daily-errors').textContent = d.errors;
+  $('#daily-rate').textContent = d.total ? `%${Math.round((d.success / d.total) * 100)}` : '%0';
+  $('#daily-input').textContent = fmtNum(d.inputTokens || 0);
+  $('#daily-output').textContent = fmtNum(d.outputTokens || 0);
+  $('#daily-tokens').textContent = fmtNum((d.inputTokens || 0) + (d.outputTokens || 0));
+
+  // mini bar chart: son 14 gün
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const dt = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+    days.push({ day: dt, ...(daily?.[dt] || { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 }) });
+  }
+  const max = Math.max(...days.map((d2) => d2.total), 1);
+  const chart = $('#daily-chart');
+  chart.innerHTML = days.map((d2) => `
+    <div class="bar-col" title="${d2.day}: ${d2.total} istek (${d2.success} başarılı, ${d2.errors} hata)">
+      <div class="bar-wrap">
+        <div class="bar bar-ok" style="height:${Math.round((d2.success / max) * 100)}%"></div>
+        <div class="bar bar-err" style="height:${Math.round((d2.errors / max) * 100)}%"></div>
+      </div>
+      <div class="bar-lbl">${d2.day.slice(5)}</div>
+    </div>`).join('');
+  $('#daily-chart-hint').textContent = `Son 14 gün — yeşil başarılı, kırmızı hata.`;
+
+  // token grafiği: mavi = girdi, turuncu = çıktı (son 14 gün)
+  const maxTok = Math.max(...days.map((d2) => Math.max(d2.inputTokens || 0, d2.outputTokens || 0)), 1);
+  const tchart = $('#token-chart');
+  tchart.innerHTML = days.map((d2) => `
+    <div class="bar-col" title="${d2.day}: ⬇ ${fmtNum(d2.inputTokens || 0)} / ⬆ ${fmtNum(d2.outputTokens || 0)} token">
+      <div class="bar-wrap">
+        <div class="bar bar-in" style="height:${Math.round(((d2.inputTokens || 0) / maxTok) * 100)}%"></div>
+        <div class="bar bar-out" style="height:${Math.round(((d2.outputTokens || 0) / maxTok) * 100)}%"></div>
+      </div>
+      <div class="bar-lbl">${d2.day.slice(5)}</div>
+    </div>`).join('');
+}
+
+function fmtNum(n) {
+  return Number(n || 0).toLocaleString('tr-TR');
+}
+
+// ---- istek logları ----
+function renderLogs(logs) {
+  const tbody = $('#logs-body');
+  tbody.innerHTML = '';
+  if (!logs || !logs.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="hint" style="text-align:center">Henüz istek yok</td></tr>';
+    return;
+  }
+  for (const l of logs.slice().reverse()) {
+    const tr = document.createElement('tr');
+    const bad = l.status >= 400;
+    const hasTokens = l.inputTokens != null || l.outputTokens != null;
+    tr.innerHTML = `
+      <td class="mono small">${fmtTime(l.ts)}</td>
+      <td class="small">${esc(l.method || '')}</td>
+      <td class="mono small">${esc(l.route || '')}</td>
+      <td class="mono small">${esc(l.model || '—')}${l.mappedTo ? `<div class="hint">← ${esc(l.mappedTo)}</div>` : ''}</td>
+      <td class="small">${esc(l.account || '—')}</td>
+      <td class="small"><span class="status-chip ${bad ? 'st-err' : 'st-ok'}">${l.status}</span></td>
+      <td class="small">${l.ms}ms</td>
+      <td class="mono small token-chip">${hasTokens ? `${fmtNum(l.inputTokens || 0)}/⬆${fmtNum(l.outputTokens || 0)}` : '—'}</td>
+      <td class="mono small hint">${esc(l.detail || '')}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+$('#logs-clear-btn').addEventListener('click', async () => {
+  await api('/api/logs', { method: 'DELETE' });
+  toast('Loglar temizlendi');
+  refresh();
+});
 
 // ---- add account ----
 $('#add-account-toggle').addEventListener('click', () => {

@@ -109,6 +109,42 @@
       <p class="hint">Claude Code'a (<code>/v1/models</code>) gösterilecek model adları. Aşağıdan seç — seçilenler API'de listelenir, isteklerde kullanılabilir. "Tümünü Göster" = filtresiz.</p>
       <div class="model-list" id="exposed-list"></div>
     </section>
+
+    <!-- İstatistikler -->
+    <section class="card">
+      <h2>📊 İstatistikler</h2>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-val" id="daily-total">0</div><div class="stat-lbl">Bugün toplam</div></div>
+        <div class="stat-box"><div class="stat-val green" id="daily-success">0</div><div class="stat-lbl">Bugün başarılı</div></div>
+        <div class="stat-box"><div class="stat-val red" id="daily-errors">0</div><div class="stat-lbl">Bugün hata</div></div>
+        <div class="stat-box"><div class="stat-val" id="daily-rate">%0</div><div class="stat-lbl">Başarı oranı</div></div>
+      </div>
+      <div class="stats-grid token-grid">
+        <div class="stat-box"><div class="stat-val token-in" id="daily-input">0</div><div class="stat-lbl">⬇ Girdi token</div></div>
+        <div class="stat-box"><div class="stat-val token-out" id="daily-output">0</div><div class="stat-lbl">⬆ Çıktı token</div></div>
+        <div class="stat-box"><div class="stat-val" id="daily-tokens">0</div><div class="stat-lbl">Toplam token</div></div>
+      </div>
+      <div class="mini-bar" id="daily-chart"></div>
+      <p class="hint" id="daily-chart-hint"></p>
+      <div class="mini-bar token-bar" id="token-chart"></div>
+      <p class="hint" id="token-chart-hint">Token kullanımı — mavi girdi, turuncu çıktı (son 14 gün).</p>
+    </section>
+
+    <!-- Loglar -->
+    <section class="card">
+      <h2>📜 İstek Logları
+        <button id="logs-clear-btn" class="btn btn-small btn-danger">Temizle</button>
+      </h2>
+      <p class="hint">Son istekler — hangi hesap, hangi model, hangi durum. Hata (4xx/5xx) satırları kırmızı işaretlenir.</p>
+      <div class="log-table-wrap">
+        <table class="logtable">
+          <thead>
+            <tr><th>Zaman</th><th>Metod</th><th>Yol</th><th>Model</th><th>Hesap</th><th>Durum</th><th>Süre</th><th>Token (in/out)</th><th>Detay</th></tr>
+          </thead>
+          <tbody id="logs-body"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <!-- Toast -->

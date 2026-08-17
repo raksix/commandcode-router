@@ -130,6 +130,38 @@ tr:last-child td { border-bottom: none; }
 #exposed-list .model-chip { cursor: pointer; user-select: none; }
 #exposed-list .model-chip:hover { border-color: var(--accent); }
 .model-chip.chip-on { background: #163425; border-color: var(--green); color: var(--green); }
+
+/* ---- istatistikler ---- */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.stat-box { background: #1d2230; border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+.mini-bar { display: flex; gap: 4px; align-items: flex-end; height: 70px; margin-top: 8px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; }
+.bar-wrap { display: flex; gap: 2px; align-items: flex-end; height: 100%; width: 100%; }
+.bar { width: 45%; border-radius: 3px 3px 0 0; min-height: 2px; }
+.bar-ok { background: var(--green); }
+.bar-err { background: var(--red); }
+.bar-lbl { font-size: 10px; color: var(--muted); }
+#daily-chart-hint { margin-top: 8px; }
+
+/* ---- token istatistikleri ---- */
+.token-grid { grid-template-columns: repeat(3, 1fr); margin-bottom: 8px; }
+.token-in { color: #4fa8ff; }
+.token-out { color: #ffa94d; }
+.token-bar { height: 80px; }
+.token-bar .bar-wrap { gap: 3px; }
+.token-bar .bar { width: 100%; }
+.bar-in { background: #4fa8ff; }
+.bar-out { background: #ffa94d; }
+.token-chip { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+/* ---- log tablosu ---- */
+.log-table-wrap { overflow-x: auto; }
+.logtable th { font-size: 11px; }
+.logtable td { font-size: 12.5px; padding: 6px 8px; }
+.small { font-size: 12px; }
+.status-chip { font-family: var(--mono); font-size: 11.5px; padding: 2px 8px; border-radius: 5px; font-weight: 600; }
+.st-ok { background: #163425; color: var(--green); }
+.st-err { background: #3a2424; color: var(--red); }
 .map-val-select {
   background: #1d2230; color: var(--text); border: 1px solid var(--border);
   border-radius: 6px; padding: 5px 8px; font-family: var(--mono); font-size: 13px;

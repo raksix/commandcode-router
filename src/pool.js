@@ -34,6 +34,47 @@ function record(account, { ok, error, status, route }) {
       st.banned = true;
     }
   }
+  // günlük istatistik
+  const day = new Date().toISOString().slice(0, 10);
+  if (!data.state.daily[day]) data.state.daily[day] = { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 };
+  data.state.daily[day].total++;
+  if (ok) data.state.daily[day].success++; else data.state.daily[day].errors++;
+  markDirty();
+}
+
+/** Son istek loglarını tut (max 300). Log objesini döndürür — sonradan token eklenebilir. */
+export function addLog(entry) {
+  const log = {
+    ts: Date.now(),
+    method: entry.method,
+    route: entry.route,
+    model: entry.model || null,
+    mappedTo: entry.mappedTo || null,
+    account: entry.account,
+    status: entry.status,
+    ok: entry.ok,
+    ms: entry.ms,
+    detail: entry.detail || null,
+    inputTokens: entry.inputTokens ?? null,
+    outputTokens: entry.outputTokens ?? null
+  };
+  data.state.logs.push(log);
+  if (data.state.logs.length > 300) {
+    data.state.logs.splice(0, data.state.logs.length - 300);
+  }
+  markDirty();
+  return log;
+}
+
+/** Günlük token istatistiklerine ekle (grafikte gösterilir) */
+export function recordTokens({ inputTokens = 0, outputTokens = 0 } = {}) {
+  if (!inputTokens && !outputTokens) return;
+  const day = new Date().toISOString().slice(0, 10);
+  if (!data.state.daily[day]) {
+    data.state.daily[day] = { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 };
+  }
+  data.state.daily[day].inputTokens = (data.state.daily[day].inputTokens || 0) + inputTokens;
+  data.state.daily[day].outputTokens = (data.state.daily[day].outputTokens || 0) + outputTokens;
   markDirty();
 }
 
