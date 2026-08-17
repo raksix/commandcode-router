@@ -56,7 +56,10 @@ export function addLog(entry) {
     ms: entry.ms,
     detail: entry.detail || null,
     inputTokens: entry.inputTokens ?? null,
-    outputTokens: entry.outputTokens ?? null
+    outputTokens: entry.outputTokens ?? null,
+    clientStream: entry.clientStream ?? null,
+    clientAccept: entry.clientAccept ?? null,
+    streamFlag: entry.streamFlag ?? null
   };
   data.state.logs.push(log);
   if (data.state.logs.length > 300) {

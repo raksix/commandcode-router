@@ -321,10 +321,12 @@ async function handleAlpha(req, res, route, started) {
   if (typeof body === 'object' && body !== null) {
     const mapped = mapModel(body.model, data.config, data.state);
     if (mapped !== body.model) { mappedTo = body.model; body.model = mapped; }
-    // Claude Code, istekte stream:true gönderse bile accept: application/json
-    // ile SSE'yi reddedip "malformed response" diyor. Bu yüzden HER ZAMAN
-    // tek JSON yanıt üret (event'ler toplanır, alphaStateToAnthropicMessage).
-    clientStream = false;
+    // İstemci tek JSON yanıt istiyorsa (stream:false) clientStream kapatılır ve
+    // event'ler toplanıp tek JSON üretilir. İstemci SSE bekliyorsa (stream:true,
+    // jcode vb.) clientStream açık kalır ve dönüştürülmüş SSE akıtılır.
+    // (Eski kod accept header'ına bakmadan hep false yapıyordu — SSE isteyen
+    //  istemciler "boş yanıt" görüyordu. req.body?.stream esas alınır.)
+    clientStream = Boolean(req.body?.stream);
   }
 
   let alphaBody;
@@ -366,6 +368,9 @@ async function handleAlpha(req, res, route, started) {
     ms: Date.now() - started,
     detail: result.status >= 400 ? String(result.bodyBuffer ?? '').slice(0, 120) : null
   });
+  log.clientStream = clientStream;
+  log.clientAccept = String(req.headers?.accept ?? '').slice(0, 30);
+  log.streamFlag = Boolean(req.body?.stream);
 
   if (result.bodyStream) {
     pipeAlphaStream({ upstreamRes: result, res, controller, log, isAnthropic, clientStream, bodyStream: result.bodyStream, model: clientModel || body.model });
