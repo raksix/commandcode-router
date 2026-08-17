@@ -8,6 +8,8 @@
  */
 export function mapModel(model, cfg, state) {
   if (!model) return cfg.defaultModel ?? model;
+  // modelMap önceliklidir: claude-sonnet-5 gibi adlar Go planında 403 alır,
+  // bu yüzden açık eşleme varsa HER ZAMAN uygula (cache'te görünse bile).
   if (cfg.modelMap?.[model]) return cfg.modelMap[model];
   for (const [k, v] of Object.entries(cfg.modelMap ?? {})) {
     if (k.endsWith('*') && model.startsWith(k.slice(0, -1))) return v;

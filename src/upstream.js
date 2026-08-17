@@ -13,7 +13,7 @@ const HOP_HEADERS = new Set([
  * - Pipes the body (ReadableStream -> ServerResponse) so SSE events flow through.
  * - Aborts upstream if the client disconnects.
  */
-export function pipeToResponse({ upstreamRes, res, signal }) {
+export function pipeToResponse({ upstreamRes, res, controller }) {
   res.status(upstreamRes.status);
   for (const [k, v] of upstreamRes.headers.entries()) {
     if (!HOP_HEADERS.has(k.toLowerCase())) res.setHeader(k, v);
@@ -25,7 +25,7 @@ export function pipeToResponse({ upstreamRes, res, signal }) {
     return;
   }
   Readable.fromWeb(upstreamRes.body).pipe(res);
-  res.on('close', () => signal.abort());
+  res.on('close', () => controller.abort());
 }
 
 /** Send a buffered body (already-serialized JSON or text) to the client. */
