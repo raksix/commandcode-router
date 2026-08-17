@@ -20,11 +20,12 @@ export function pipeToResponse({ upstreamRes, res, controller }) {
   }
   res.flushHeaders();
 
-  if (!upstreamRes.body) {
+  const body = upstreamRes.bodyStream ?? upstreamRes.body;
+  if (!body) {
     res.end();
     return;
   }
-  Readable.fromWeb(upstreamRes.body).pipe(res);
+  Readable.fromWeb(body).pipe(res);
   res.on('close', () => controller.abort());
 }
 

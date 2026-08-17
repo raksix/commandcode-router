@@ -15,6 +15,22 @@ export function isOssModel(model) {
 }
 
 /**
+ * CommandCode /provider API'si models listesinde vendor'lı model adları
+ * gösterir (xiaomi/mimo-v2.5) AMA isteklerde vendor prefix'siz ad ister
+ * (mimo-v2.5) — vendor'lı gönderilirse 401 "Model not supported" döner.
+ * Bu yüzden upstream'e gitmeden önce `vendor/name` -> `name` normalize edilir.
+ * (claude-* zaten prefix'siz; deepseek/deepseek-v4-flash -> deepseek-v4-flash)
+ */
+export function commandCodeModelName(model) {
+  if (!model || typeof model !== 'string') return model;
+  const idx = model.indexOf('/');
+  if (idx > 0 && !model.startsWith('claude-')) {
+    return model.slice(idx + 1);
+  }
+  return model;
+}
+
+/**
  * Hermes/gateway'ler model adına provider prefix'i ekleyebilir:
  *   anthropic:cmd/deepseek/deepseek-v4-flash  ->  cmd/deepseek/deepseek-v4-flash
  *   anthropic:claude-sonnet-5                 ->  claude-sonnet-5

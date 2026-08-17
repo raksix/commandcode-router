@@ -178,7 +178,11 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .btn-ghost { background: transparent; }
 .btn-small { padding: 4px 10px; font-size: 12px; }
 
-.row-form { display: flex; gap: 10px; margin: 12px 0; flex-wrap: wrap; }
+.row-form { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.row-form select {
+  background: #1a1f2e; color: var(--text); border: 1px solid #2a3145;
+  border-radius: 8px; padding: 8px 10px; font-size: 13px;
+}
 .row-form input { flex: 1; min-width: 140px; }
 
 /* ---- master key ---- */
@@ -199,6 +203,8 @@ tr:last-child td { border-bottom: none; }
   font-size: 12px; font-family: var(--mono); color: var(--muted);
 }
 .badge-ban { background: #3a2424; color: var(--red); }
+.badge-cc { background: #1d2a4a; color: #7fb0ff; }
+.badge-og { background: #163425; color: var(--green); }
 .badge-ok { background: #163425; color: var(--green); }
 .badge-off { background: #2a2424; color: var(--yellow); }
 

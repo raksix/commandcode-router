@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>CommandCode Router</title>
-  <link rel="stylesheet" href="/assets/style.css?v=7" />
+  <link rel="stylesheet" href="/assets/style.css?v=8" />
 </head>
 <body>
   <!-- Loading screen (sayfa açılışında görünür, dashboard hazır olunca kaybolur) -->
@@ -117,7 +117,11 @@
         </h2>
         <form id="add-account-form" class="hidden row-form">
           <input id="acc-name" placeholder="Hesap adı (örn. Hesap 1)" required />
-          <input id="acc-key" class="mono" placeholder="CommandCode API key (cmd_... veya user_...)" required />
+          <select id="acc-provider">
+            <option value="commandcode">CommandCode</option>
+            <option value="opencode-go">OpenCode Go</option>
+          </select>
+          <input id="acc-key" class="mono" placeholder="API key (cmd_... / user_... / ok_...)" required />
           <button type="submit" class="btn btn-primary">Ekle</button>
         </form>
         <div class="hint ccauth-add-hint">
@@ -127,7 +131,7 @@
         <table class="accounts">
           <thead>
             <tr>
-              <th>Ad</th><th>API Key</th><th>Durum</th><th>İstek</th><th>Hata</th><th>Son Kullanım</th><th></th>
+              <th>Ad</th><th>API Key</th><th>Provider</th><th>Durum</th><th>İstek</th><th>Hata</th><th>Son Kullanım</th><th></th>
             </tr>
           </thead>
           <tbody id="accounts-body"></tbody>
@@ -247,6 +251,6 @@ curl -X POST http://localhost:3025/v1/messages \
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/assets/app.js?v=7"></script>
+  <script src="/assets/app.js?v=8"></script>
 </body>
 </html>

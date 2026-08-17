@@ -11,7 +11,11 @@ import {
 } from '../alpha.js';
 
 const UPSTREAM_BASE = 'https://api.commandcode.ai/provider';
-const useAlpha = () => data.config.useAlpha !== false; // default: AÇIK — Go planı da çalışır
+// alpha/generate yolu SADECE CommandCode hesapları için çalışır (opencode.ai'de böyle
+// bir endpoint yok). Havuzda opencode-go hesabı varsa alpha kapatılır ve her şey
+// normal provider-bazlı yoldan (pool.js account.upstreamBase) gider.
+const hasOpenCodeGo = () => (data.config.accounts || []).some((a) => a.provider === 'opencode-go');
+const useAlpha = () => data.config.useAlpha !== false && !hasOpenCodeGo(); // default: AÇIK (CommandCode-only havuz)
 
 export const proxyRouter = Router();
 
@@ -43,7 +47,10 @@ proxyRouter.get('/v1/models', async (req, res) => {
       return;
     }
     try {
-      const up = await fetch(UPSTREAM_BASE + '/v1/models', {
+      // hesabın provider'ına göre model listesi (commandcode: /v1/models, opencode-go: /models)
+      const base = (account.upstreamBase || UPSTREAM_BASE).replace(/\/+$/, '');
+      const modelsPath = account.provider === 'opencode-go' ? '/models' : '/v1/models';
+      const up = await fetch(base + modelsPath, {
         headers: { authorization: `Bearer ${account.apiKey}` }
       });
       upstreamText = await up.text();
@@ -112,6 +119,7 @@ proxyRouter.use('/v1', async (req, res) => {
       if (typeof body.model === 'string') body.model = cleanModelPrefix(body.model);
       // OSS model (deepseek/gpt/...) ise Anthropic endpoint'i kabul etmiyor ->
       // chat/completions'a yönlendir + gövdeyi OpenAI formatına çevir
+      // (SADECE /v1/messages'ta; /v1/chat/completions zaten OpenAI formatı)
       if (isOssModel(body.model) && route.endsWith('/v1/messages')) {
         convertOss = true;
         upstreamRoute = route.replace(/\/v1\/messages$/, '/v1/chat/completions');
@@ -126,7 +134,7 @@ proxyRouter.use('/v1', async (req, res) => {
   res.on('close', () => controller.abort());
 
   const result = await routeRequest({
-    url: UPSTREAM_BASE + upstreamRoute + (query ? `?${query}` : ''), // OSS'de upstreamRoute /v1/chat/completions olur
+    url: upstreamRoute + (query ? `?${query}` : ''), // sadece path — hesabın provider base'ine eklenir
     method: req.method,
     headers: pickForwardHeaders(req),
     body: req.method === 'GET' || req.method === 'HEAD' ? undefined : (rawBody ?? JSON.stringify(body)),
@@ -193,12 +201,13 @@ function pipeConvertedStream({ upstreamRes, res, controller, log }) {
   res.setHeader('connection', 'keep-alive');
   res.flushHeaders();
 
-  if (!upstreamRes.body) {
+  if (!upstreamRes.bodyStream && !upstreamRes.body) {
     res.end();
     return;
   }
 
-  const reader = upstreamRes.body.getReader();
+  const body = upstreamRes.bodyStream ?? upstreamRes.body;
+  const reader = body.getReader();
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let buffer = '';

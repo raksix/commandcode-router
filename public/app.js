@@ -239,6 +239,7 @@ function renderAccounts(accounts) {
         <span class="key-val">${maskKey(a.apiKeyMasked)}</span>
         <button class="eye-btn" title="Tam keyi gör"><svg class="ic ic-sm"><use href="/assets/sprite.svg#i-eye"/></svg></button>
       </td>
+      <td><span class="badge ${a.provider === 'opencode-go' ? 'badge-og' : 'badge-cc'}">${a.provider === 'opencode-go' ? 'OpenCode Go' : 'CommandCode'}</span></td>
       <td>${statusBadge}${a.banned ? `<div class="hint">${esc(a.lastError || '')}</div>` : ''}</td>
       <td>${a.totalRequests}</td>
       <td class="${a.consecutiveErrors > 0 ? 'stat-val red' : ''}" style="font-size:14px">${a.consecutiveErrors}</td>
@@ -393,9 +394,10 @@ $('#add-account-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = $('#acc-name').value.trim();
   const apiKey = $('#acc-key').value.trim();
+  const provider = $('#acc-provider').value;
   if (!name || !apiKey) return;
   try {
-    await api('/api/accounts', { method: 'POST', body: JSON.stringify({ name, apiKey }) });
+    await api('/api/accounts', { method: 'POST', body: JSON.stringify({ name, apiKey, provider }) });
     $('#acc-name').value = '';
     $('#acc-key').value = '';
     $('#add-account-form').classList.add('hidden');

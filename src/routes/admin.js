@@ -10,9 +10,17 @@ import {
 
 export const adminRouter = Router();
 
-const UPSTREAM_BASE = 'https://api.commandcode.ai/provider';
+export const UPSTREAM_BASES = {
+  commandcode: 'https://api.commandcode.ai/provider',
+  'opencode-go': 'https://opencode.ai/zen/go/v1'
+};
 
-/** Fetch CommandCode model list (reuses the 5-min proxy cache; fetches fresh if stale). */
+/** Hesabın upstream base URL'i (provider alanına göre; eski hesaplarda default commandcode). */
+export function accountBaseUrl(account) {
+  return UPSTREAM_BASES[account?.provider] || UPSTREAM_BASES.commandcode;
+}
+
+/** Fetch provider model list (reuses the 5-min proxy cache; fetches fresh if stale). */
 async function fetchModels() {
   const cache = data.state.modelsCache;
   const now = Date.now();
@@ -23,7 +31,7 @@ async function fetchModels() {
   const account = pickAccount();
   if (!account) return [];
   try {
-    const up = await fetch(UPSTREAM_BASE + '/v1/models', {
+    const up = await fetch(accountBaseUrl(account) + '/models', {
       headers: { authorization: `Bearer ${account.apiKey}` }
     });
     if (!up.ok) return [];
@@ -65,6 +73,7 @@ adminRouter.get('/status', (req, res) => {
     return {
       id: a.id,
       name: a.name,
+      provider: a.provider || 'commandcode',
       apiKeyMasked: maskKey(a.apiKey),
       isActive: a.isActive,
       totalRequests: st.totalRequests,
@@ -104,20 +113,22 @@ adminRouter.delete('/logs', (req, res) => {
 
 // ---- accounts CRUD ----
 adminRouter.post('/accounts', (req, res) => {
-  const { name, apiKey } = req.body ?? {};
+  const { name, apiKey, provider } = req.body ?? {};
   if (!name || !apiKey) {
     res.status(400).json({ error: 'name ve apiKey gerekli' });
     return;
   }
+  const prov = UPSTREAM_BASES[provider] ? String(provider) : 'commandcode';
   const account = {
     id: crypto.randomUUID(),
     name: String(name),
     apiKey: String(apiKey).trim(),
+    provider: prov,
     isActive: true
   };
   data.config.accounts.push(account);
   markDirty();
-  res.status(201).json({ id: account.id, name: account.name, apiKeyMasked: maskKey(account.apiKey) });
+  res.status(201).json({ id: account.id, name: account.name, provider: account.provider, apiKeyMasked: maskKey(account.apiKey) });
 });
 
 adminRouter.patch('/accounts/:id', (req, res) => {
@@ -160,7 +171,7 @@ adminRouter.post('/accounts/:id/test', async (req, res) => {
 
   const started = Date.now();
   try {
-    const up = await fetch(UPSTREAM_BASE + '/v1/models', {
+    const up = await fetch(accountBaseUrl(acc) + '/models', {
       headers: { authorization: `Bearer ${acc.apiKey}` }
     });
     const text = await up.text();

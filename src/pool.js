@@ -1,5 +1,16 @@
 import { data, getAccountState, markDirty } from './store.js';
 
+/** Provider -> upstream base URL (pool.js ve proxy.js ortak kullanır). */
+export const UPSTREAM_BASES = {
+  commandcode: 'https://api.commandcode.ai/provider',
+  'opencode-go': 'https://opencode.ai/zen/go/v1'
+};
+
+/** Hesabın upstream base URL'i (provider alanına göre; eski hesaplarda default commandcode). */
+export function accountBaseUrl(account) {
+  return UPSTREAM_BASES[account?.provider] || UPSTREAM_BASES.commandcode;
+}
+
 /**
  * Round-robin: aktif ve banlanmamış hesaplar arasında sırayla seç.
  * state.roundRobinIndex state.json'da kalır -> restart'ta sıra devam eder.
@@ -12,7 +23,10 @@ export function pickAccount() {
   const idx = data.state.roundRobinIndex % active.length;
   data.state.roundRobinIndex = (idx + 1) % active.length;
   markDirty();
-  return active[idx];
+  const acc = active[idx];
+  // provider'dan base URL'i hesapla (proxy.js kolayca kullansın)
+  acc.upstreamBase = accountBaseUrl(acc);
+  return acc;
 }
 
 function record(account, { ok, error, status, route }) {
@@ -86,7 +100,7 @@ export function recordTokens({ inputTokens = 0, outputTokens = 0 } = {}) {
  * 401/429/5xx'te sıradaki hesaba geçerek maxRetries kez yeniden dener.
  * returns: { status, headers, bodyStream | bodyBuffer, account }
  */
-export async function routeRequest({ url, method, headers, body, signal, route }) {
+export async function routeRequest({ url, method, headers, body, signal, route, baseUrl }) {
   const cfg = data.config;
   const maxRetries = cfg.retry?.maxRetries ?? 2;
 
@@ -107,13 +121,57 @@ export async function routeRequest({ url, method, headers, body, signal, route }
       };
     }
 
+    // Hesabın provider'ına göre base URL seç.
+    // url'deki host tamamen atılır; sadece path + query alınıp hesap base'ine eklenir.
+    // (url: https://api.commandcode.ai/provider/v1/chat/completions?x=1 -> path: /v1/chat/completions?x=1)
+    const accBase = (baseUrl || account.upstreamBase || 'https://api.commandcode.ai/provider').replace(/\/+$/, '');
+    let finalUrl;
+    try {
+      // url path-only olabilir (/v1/chat/completions) — o zaman base ile parse et
+      let pathPart;
+      if (/^https?:\/\//i.test(url)) {
+        const u = new URL(url);
+        pathPart = u.pathname + u.search;
+      } else {
+        pathPart = url;
+      }
+      // url path'i, accBase'in path'iyle başlıyorsa kırp (commandcode: /provider)
+      const basePath = new URL(accBase).pathname.replace(/\/+$/, '');
+      if (basePath && pathPart.startsWith(basePath)) {
+        pathPart = pathPart.slice(basePath.length) || '/';
+      }
+      // opencode-go base'i /v1 ile bitiyor, path de /v1/... ile başlıyorsa çiftlenir
+      if (/\/v1\/?$/.test(accBase) && pathPart.startsWith('/v1/')) {
+        pathPart = pathPart.slice(3) || '/';
+      }
+      finalUrl = accBase + pathPart;
+    } catch {
+      finalUrl = accBase + (url.startsWith('/') ? url : '/' + url);
+    }
+
     // build headers with this account's key
     const upHeaders = { ...headers };
     upHeaders.authorization = `Bearer ${account.apiKey}`;
 
+    // opencode-go, model adlarında provider prefix'i kabul etmez:
+    // 'deepseek/deepseek-v4-flash' -> 'deepseek-v4-flash' (slash sonrası).
+    // CommandCode /provider ise slash'lı adları kabul eder (test: 200 veriyor).
+    // Alpha yolu pool.js'i atladığı için bu sadece provider yolunu etkiler.
+    let bodyForUpstream = body;
+    if (account.provider === 'opencode-go' && typeof body === 'string') {
+      try {
+        const parsed = JSON.parse(body);
+        if (parsed?.model && typeof parsed.model === 'string') {
+          const slashIdx = parsed.model.lastIndexOf('/');
+          if (slashIdx > 0) parsed.model = parsed.model.slice(slashIdx + 1);
+          bodyForUpstream = JSON.stringify(parsed);
+        }
+      } catch { /* body JSON değilse dokunma */ }
+    }
+
     let res;
     try {
-      res = await fetch(url, { method, headers: upHeaders, body, signal });
+      res = await fetch(finalUrl, { method, headers: upHeaders, body: bodyForUpstream, signal });
     } catch (err) {
       if (signal?.aborted) throw err; // client left — don't count against account
       record(account, { ok: false, error: err.message, route });
