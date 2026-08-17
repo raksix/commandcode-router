@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CommandCode Router</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+  <!-- Login screen -->
+  <div id="login-screen" class="screen hidden">
+    <div class="login-card">
+      <h1>🔀 CommandCode Router</h1>
+      <p class="sub">Yönetim paneline giriş</p>
+      <form id="login-form">
+        <input type="password" id="login-password" placeholder="Admin şifresi" autocomplete="current-password" required />
+        <button type="submit" class="btn btn-primary">Giriş Yap</button>
+      </form>
+      <div id="login-error" class="error hidden"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="screen hidden">
+    <header class="topbar">
+      <div class="brand">🔀 CommandCode Router</div>
+      <div class="topbar-right">
+        <span id="rr-index" class="badge" title="Round-robin sırası">Sıra: 0</span>
+        <button id="logout-btn" class="btn btn-ghost">Çıkış</button>
+      </div>
+    </header>
+
+    <!-- Stats strip -->
+    <section class="stats-strip">
+      <div class="stat"><div class="stat-val" id="stat-total">0</div><div class="stat-lbl">Toplam istek</div></div>
+      <div class="stat"><div class="stat-val green" id="stat-success">0</div><div class="stat-lbl">Başarılı</div></div>
+      <div class="stat"><div class="stat-val red" id="stat-errors">0</div><div class="stat-lbl">Hata</div></div>
+      <div class="stat"><div class="stat-val" id="stat-active">0</div><div class="stat-lbl">Aktif hesap</div></div>
+      <div class="stat"><div class="stat-val" id="stat-banned">0</div><div class="stat-lbl">Banlı</div></div>
+    </section>
+
+    <!-- Master key card -->
+    <section class="card">
+      <h2>🔑 Master API Key</h2>
+      <p class="hint">Claude Code ve diğer istemciler bu key ile proxy'ye bağlanır.</p>
+      <div class="masterkey-row">
+        <input id="master-key" class="mono" readonly placeholder="Yükleniyor..." />
+        <button id="copy-key" class="btn">Kopyala</button>
+        <button id="regen-key" class="btn btn-danger">Yenile</button>
+      </div>
+      <div class="hint" id="new-key-hint" style="color:#e0b341"></div>
+    </section>
+
+    <!-- Accounts -->
+    <section class="card">
+      <h2>👥 Hesaplar <button id="add-account-toggle" class="btn btn-small">+ Hesap Ekle</button></h2>
+      <form id="add-account-form" class="hidden row-form">
+        <input id="acc-name" placeholder="Hesap adı (örn. Hesap 1)" required />
+        <input id="acc-key" class="mono" placeholder="CommandCode API key (cmd_... veya user_...)" required />
+        <button type="submit" class="btn btn-primary">Ekle</button>
+      </form>
+      <table class="accounts">
+        <thead>
+          <tr>
+            <th>Ad</th><th>API Key</th><th>Durum</th><th>İstek</th><th>Hata</th><th>Son Kullanım</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="accounts-body"></tbody>
+      </table>
+    </section>
+
+    <!-- Model map -->
+    <section class="card">
+      <h2>🧠 Model Eşleme</h2>
+      <div class="row-form">
+        <label class="default-model">Varsayılan model:
+          <input id="default-model" class="mono" placeholder="claude-sonnet-5" />
+        </label>
+      </div>
+      <table class="modelmap">
+        <thead><tr><th>Claude modeli (istemciden)</th><th>CommandCode modeli</th><th></th></tr></thead>
+        <tbody id="modelmap-body"></tbody>
+      </table>
+      <form id="add-map-form" class="row-form">
+        <input id="map-key" class="mono" placeholder="claude-sonnet-4-*" />
+        <input id="map-val" class="mono" placeholder="claude-sonnet-5" />
+        <button type="submit" class="btn">Ekle</button>
+      </form>
+    </section>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>

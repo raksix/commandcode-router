@@ -1,0 +1,7 @@
+# Secrets & runtime data — never commit
+config.json
+state.json
+*.log
+
+# Dependencies
+node_modules/

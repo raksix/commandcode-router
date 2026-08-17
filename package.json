@@ -1,0 +1,14 @@
+{
+  "name": "commandcode-router",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Anthropic-compatible API proxy that routes requests round-robin across a pool of CommandCode API keys.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "cors": "^2.8.5"
+  }
+}
