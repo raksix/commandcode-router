@@ -59,15 +59,32 @@ async function showDashboard() {
   setInterval(refresh, 10000); // auto-refresh stats every 10s
 }
 
-// ---- CommandCode model list (for dropdowns) ----
+// ---- CommandCode model list (for dropdowns + full list) ----
 let ccModels = [];
+let ccModelDetails = [];
 async function loadModels() {
   try {
     const r = await api('/api/models');
-    ccModels = (r.models || []).map((m) => m.id);
+    ccModelDetails = r.models || [];
+    ccModels = ccModelDetails.map((m) => m.id);
+    renderModelList();
   } catch {
     ccModels = [];
+    ccModelDetails = [];
   }
+}
+
+// full model listesi kartı
+function renderModelList() {
+  const el = $('#model-list');
+  if (!ccModelDetails.length) {
+    el.innerHTML = '<span class="hint">Model listesi yüklenemedi. Hesap planı Provider değilse API erişimi engellenir.</span>';
+    return;
+  }
+  el.innerHTML = ccModelDetails.map((m) => {
+    const ctx = m.context_length ? `<span class="ctx">${(m.context_length / 1000).toLocaleString('tr-TR')}k ctx</span>` : '';
+    return `<span class="model-chip" title="${esc(m.name || '')}">${esc(m.id)}${ctx}</span>`;
+  }).join('');
 }
 function modelOptions(selected) {
   if (!ccModels.length) {
@@ -240,12 +257,19 @@ $('#auto-map-btn').addEventListener('click', async () => {
   $('#auto-map-btn').textContent = 'Eşleniyor...';
   try {
     const r = await api('/api/model-map/auto', { method: 'POST' });
-    ccModels = (await api('/api/models').catch(() => ({ models: [] }))).models?.map((m) => m.id) ?? ccModels;
+    await loadModels();
     toast(`Otomatik eşleme tamam: Sonnet=${r.found.sonnet || '—'}, Opus=${r.found.opus || '—'}, Haiku=${r.found.haiku || '—'}, Fable=${r.found.fable || '—'}`);
     refresh();
   } catch (err) { toast(err.message, 'err'); }
   $('#auto-map-btn').disabled = false;
   $('#auto-map-btn').textContent = '⚡ Otomatik Eşle';
+});
+
+$('#refresh-models-btn').addEventListener('click', async () => {
+  $('#refresh-models-btn').disabled = true;
+  await loadModels();
+  toast(`Model listesi güncellendi (${ccModels.length} model)`);
+  $('#refresh-models-btn').disabled = false;
 });
 
 $('#add-map-form').addEventListener('submit', async (e) => {

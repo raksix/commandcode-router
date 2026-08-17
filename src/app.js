@@ -35,7 +35,11 @@ export function createApp() {
   // ---- static admin panel ----
   // index.html is public so the login screen always renders;
   // the /api/* endpoints and the dashboard refresh() call enforce auth.
-  app.use('/assets', express.static(PUBLIC_DIR, { maxAge: '1h' }));
+  // no-store: her zaman güncel JS/CSS gelsin (eski cache tarayıcıda takılı kalıyor)
+  app.use('/assets', express.static(PUBLIC_DIR, {
+    maxAge: 0,
+    setHeaders: (res) => res.setHeader('Cache-Control', 'no-store')
+  }));
 
   app.get('/', (req, res) => {
     res.sendFile(path.join(PUBLIC_DIR, 'index.html'));

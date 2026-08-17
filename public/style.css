@@ -120,6 +120,19 @@ tr:last-child td { border-bottom: none; }
 
 .eye-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 13px; }
 
+/* ---- commandcode model list ---- */
+.model-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.model-chip {
+  background: #1d2230; border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 12px; font-family: var(--mono); font-size: 12.5px; color: var(--text);
+}
+.model-chip .ctx { color: var(--muted); font-size: 11px; margin-left: 6px; }
+.map-val-select {
+  background: #1d2230; color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 8px; font-family: var(--mono); font-size: 13px;
+  max-width: 340px;
+}
+
 /* ---- toast ---- */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
