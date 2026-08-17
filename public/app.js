@@ -54,8 +54,27 @@ $('#logout-btn').addEventListener('click', async () => {
 async function showDashboard() {
   $('#login-screen').classList.add('hidden');
   $('#dashboard').classList.remove('hidden');
+  await loadModels();
   await refresh();
   setInterval(refresh, 10000); // auto-refresh stats every 10s
+}
+
+// ---- CommandCode model list (for dropdowns) ----
+let ccModels = [];
+async function loadModels() {
+  try {
+    const r = await api('/api/models');
+    ccModels = (r.models || []).map((m) => m.id);
+  } catch {
+    ccModels = [];
+  }
+}
+function modelOptions(selected) {
+  if (!ccModels.length) {
+    return `<input id="map-val" class="mono" value="${esc(selected || '')}" />`;
+  }
+  const opts = ccModels.map((id) => `<option value="${esc(id)}" ${id === selected ? 'selected' : ''}>${esc(id)}</option>`).join('');
+  return `<select class="map-val-select mono">${opts}</select>`;
 }
 
 // ---- render ----
@@ -174,9 +193,19 @@ function renderModelMap(modelMap, defaultModel) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="mono">${esc(k)}</td>
-      <td class="mono">${esc(v)}</td>
+      <td>${modelOptions(v)}</td>
       <td style="text-align:right"><button class="btn btn-small btn-danger del-map">Sil</button></td>
     `;
+    // dropdown change -> save immediately
+    const sel = tr.querySelector('.map-val-select');
+    if (sel) {
+      sel.addEventListener('change', async () => {
+        try {
+          await api('/api/model-map', { method: 'POST', body: JSON.stringify({ key: k, value: sel.value }) });
+          toast(`Eşleme güncellendi: ${k} → ${sel.value}`);
+        } catch (err) { toast(err.message, 'err'); }
+      });
+    }
     tr.querySelector('.del-map').addEventListener('click', async () => {
       await api(`/api/model-map/${encodeURIComponent(k)}`, { method: 'DELETE' });
       refresh();
@@ -206,6 +235,19 @@ $('#add-account-form').addEventListener('submit', async (e) => {
 });
 
 // ---- model map ----
+$('#auto-map-btn').addEventListener('click', async () => {
+  $('#auto-map-btn').disabled = true;
+  $('#auto-map-btn').textContent = 'Eşleniyor...';
+  try {
+    const r = await api('/api/model-map/auto', { method: 'POST' });
+    ccModels = (await api('/api/models').catch(() => ({ models: [] }))).models?.map((m) => m.id) ?? ccModels;
+    toast(`Otomatik eşleme tamam: Sonnet=${r.found.sonnet || '—'}, Opus=${r.found.opus || '—'}, Haiku=${r.found.haiku || '—'}, Fable=${r.found.fable || '—'}`);
+    refresh();
+  } catch (err) { toast(err.message, 'err'); }
+  $('#auto-map-btn').disabled = false;
+  $('#auto-map-btn').textContent = '⚡ Otomatik Eşle';
+});
+
 $('#add-map-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const key = $('#map-key').value.trim();

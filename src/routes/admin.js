@@ -2,10 +2,44 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import { data, getAccountState, markDirty } from '../store.js';
 import { loginAdmin, logoutAdmin, requireAdmin } from '../auth.js';
+import { pickAccount } from '../pool.js';
 
 export const adminRouter = Router();
 
 const UPSTREAM_BASE = 'https://api.commandcode.ai/provider';
+
+/** Fetch CommandCode model list (reuses the 5-min proxy cache; fetches fresh if stale). */
+async function fetchModels() {
+  const cache = data.state.modelsCache;
+  const now = Date.now();
+  const ttl = (data.config.modelsCacheTtlSec ?? 300) * 1000;
+  if (cache.data && cache.at && now - cache.at < ttl) {
+    try { return JSON.parse(cache.data).data ?? []; } catch {}
+  }
+  const account = pickAccount();
+  if (!account) return [];
+  try {
+    const up = await fetch(UPSTREAM_BASE + '/v1/models', {
+      headers: { authorization: `Bearer ${account.apiKey}` }
+    });
+    if (!up.ok) return [];
+    const text = await up.text();
+    cache.data = text;
+    cache.at = now;
+    markDirty();
+    return JSON.parse(text).data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Pick the newest model id for a family prefix (claude-opus-, claude-sonnet-, ...). */
+function pickLatest(ids, prefix, fallback) {
+  const candidates = ids.filter((id) => id.startsWith(prefix));
+  if (!candidates.length) return fallback;
+  candidates.sort().reverse(); // claude-sonnet-5 > claude-sonnet-4-6
+  return candidates[0];
+}
 
 // ---- auth endpoints ----
 adminRouter.post('/login', (req, res) => {
@@ -146,6 +180,37 @@ adminRouter.post('/master-key', (req, res) => {
   }
   markDirty();
   res.json({ ok: true, masterKey: data.config.masterKey });
+});
+
+// ---- model list (from CommandCode) ----
+adminRouter.get('/models', async (req, res) => {
+  const models = await fetchModels();
+  res.json({ models });
+});
+
+// ---- auto-map: fill modelMap from latest CommandCode Claude models ----
+adminRouter.post('/model-map/auto', async (req, res) => {
+  const models = await fetchModels();
+  const ids = models.map((m) => m.id);
+
+  const opus = pickLatest(ids, 'claude-opus-', null);
+  const sonnet = pickLatest(ids, 'claude-sonnet-', null);
+  const haiku = pickLatest(ids, 'claude-haiku-', null);
+  const fable = pickLatest(ids, 'claude-fable-', null);
+
+  const map = {
+    'claude-opus-4-*': opus ?? 'claude-opus-5',
+    'claude-opus-3-*': opus ?? 'claude-opus-5',
+    'claude-sonnet-4-*': sonnet ?? 'claude-sonnet-5',
+    'claude-sonnet-3-*': sonnet ?? 'claude-sonnet-5',
+    'claude-haiku-4-*': haiku ?? 'claude-haiku-4-5-20251001',
+    'claude-haiku-3-*': haiku ?? 'claude-haiku-4-5-20251001',
+    'claude-fable-*': fable ?? 'claude-fable-5'
+  };
+  data.config.modelMap = map;
+  data.config.defaultModel = sonnet ?? 'claude-sonnet-5';
+  markDirty();
+  res.json({ ok: true, modelMap: data.config.modelMap, defaultModel: data.config.defaultModel, found: { opus, sonnet, haiku, fable } });
 });
 
 // ---- model map ----
