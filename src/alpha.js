@@ -294,6 +294,12 @@ export function alphaEventToAnthropicSSE(state, event) {
   };
 
   const openBlock = (type, contentBlock) => {
+    // Önceki açık bloğu kapat (Claude Code, thinking -> text geçişinde
+    // content_block_stop bekler; eksikse yanıtı "malformed" sayar)
+    if (state.blocks.length) {
+      const prev = state.blocks[state.blocks.length - 1];
+      out.push(JSON.stringify({ type: 'content_block_stop', index: prev.index }));
+    }
     const block = { type, index: state.blocks.length };
     state.blocks.push(block);
     out.push(JSON.stringify({ type: 'content_block_start', index: block.index, content_block: contentBlock }));
@@ -312,12 +318,10 @@ export function alphaEventToAnthropicSSE(state, event) {
       break;
     }
     case 'reasoning-delta': {
+      // Claude Code 2.1.x (interleaved-thinking beta) + display:omitted modunda
+      // thinking blokları reddedilebiliyor. Topla ama SSE'ye yazma (güvenli).
       if (!event.text) break;
-      ensureStart();
-      let b = findBlock('thinking');
-      if (!b) b = openBlock('thinking', { type: 'thinking', thinking: '' });
       state.reasoning += event.text;
-      out.push(JSON.stringify({ type: 'content_block_delta', index: b.index, delta: { type: 'thinking_delta', thinking: event.text } }));
       break;
     }
     case 'tool-call': {
@@ -340,6 +344,11 @@ export function alphaEventToAnthropicSSE(state, event) {
       state.finishReason = event.finishReason || 'stop';
       const u = event.usage || event.totalUsage;
       if (u) state.usage = mergeUsage(state.usage, u);
+      // Son açık bloğu kapat (message_delta'dan önce content_block_stop şart)
+      for (const b of state.blocks) {
+        out.push(JSON.stringify({ type: 'content_block_stop', index: b.index }));
+      }
+      state.blocks = [];
       const reason = state.finishReason;
       const stopReason =
         reason === 'length' || reason === 'max_tokens' ? 'max_tokens'
@@ -461,6 +470,10 @@ export function alphaEventToOpenAISSE(state, event) {
 /** stream'siz (istek stream:false) için: birikmiş state'ten tek Anthropic JSON yanıt üret */
 export function alphaStateToAnthropicMessage(state) {
   const content = [];
+  // finish case'i state.blocks'u boşaltır — tool_use'ları state.toolCalls'tan topla
+  for (const tc of state.toolCalls) {
+    content.push({ type: 'tool_use', id: tc.id, name: tc.name, input: tc.input });
+  }
   for (const b of state.blocks) {
     if (b.type === 'text') content.push({ type: 'text', text: state.content });
     else if (b.type === 'thinking') content.push({ type: 'thinking', thinking: state.reasoning });

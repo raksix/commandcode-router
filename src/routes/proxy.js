@@ -314,11 +314,17 @@ async function handleAlpha(req, res, route, started) {
   let body = req.body ?? {};
   let mappedTo = null;
   let clientStream = true;
+  // Claude Code, yanıtın model alanında istekteki model adını bekler.
+  // Map sonrası upstream adı dönerse (deepseek/...) istemci "malformed" der.
+  const clientModel = body.model ?? null;
 
   if (typeof body === 'object' && body !== null) {
     const mapped = mapModel(body.model, data.config, data.state);
     if (mapped !== body.model) { mappedTo = body.model; body.model = mapped; }
-    if (body.stream !== undefined) clientStream = !!body.stream;
+    // Claude Code, istekte stream:true gönderse bile accept: application/json
+    // ile SSE'yi reddedip "malformed response" diyor. Bu yüzden HER ZAMAN
+    // tek JSON yanıt üret (event'ler toplanır, alphaStateToAnthropicMessage).
+    clientStream = false;
   }
 
   let alphaBody;
@@ -362,7 +368,7 @@ async function handleAlpha(req, res, route, started) {
   });
 
   if (result.bodyStream) {
-    pipeAlphaStream({ upstreamRes: result, res, controller, log, isAnthropic, clientStream, bodyStream: result.bodyStream });
+    pipeAlphaStream({ upstreamRes: result, res, controller, log, isAnthropic, clientStream, bodyStream: result.bodyStream, model: clientModel || body.model });
   } else {
     // hata gövdesi (bodyBuffer) — olduğu gibi geç
     sendBuffer({
@@ -379,8 +385,11 @@ async function handleAlpha(req, res, route, started) {
  * - clientStream:true  -> Anthropic / OpenAI SSE olarak akıt
  * - clientStream:false -> event'leri topla, tek JSON yanıt üret
  */
-function pipeAlphaStream({ upstreamRes, res, controller, log, isAnthropic, clientStream, bodyStream }) {
+function pipeAlphaStream({ upstreamRes, res, controller, log, isAnthropic, clientStream, bodyStream, model }) {
   const state = createAlphaState();
+  // Claude Code, message_start.message.model boşsa yanıtı "malformed" sayar.
+  // CLI event'leri model taşımaz -> istekten al (zaten map'lenmiş upstream modeli).
+  state.model = model || null;
   if (clientStream) {
     res.status(upstreamRes.status);
     res.setHeader('content-type', 'text/event-stream');
@@ -403,7 +412,6 @@ function pipeAlphaStream({ upstreamRes, res, controller, log, isAnthropic, clien
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let buffer = '';
-
   const processEvent = (ev) => {
     if (!ev || typeof ev !== 'object') return;
     if (ev.model && !state.model) state.model = ev.model;
@@ -425,8 +433,8 @@ function pipeAlphaStream({ upstreamRes, res, controller, log, isAnthropic, clien
     }
   };
 
-  const pump = () => {
-    reader.read().then(({ done, value }) => {
+  const pump = async () => {
+    reader.read().then(async ({ done, value }) => {
       if (done) {
         for (const line of buffer.split('\n')) processEvent(parseAlphaLine(line));
         flushTokenLog();
