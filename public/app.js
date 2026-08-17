@@ -36,13 +36,14 @@ function maskKey(k) {
 // ---- auth flow ----
 $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const password = $('#login-password').value;
+  const password = $('#login-password').value.trim();
+  if (!password) { $('#login-error').textContent = 'Şifre boş olamaz'; $('#login-error').classList.remove('hidden'); return; }
   try {
     await api('/api/login', { method: 'POST', body: JSON.stringify({ password }) });
     $('#login-error').classList.add('hidden');
     showDashboard();
   } catch (err) {
-    $('#login-error').textContent = err.message;
+    $('#login-error').textContent = err.message || 'Giriş hatası';
     $('#login-error').classList.remove('hidden');
   }
 });
@@ -449,17 +450,16 @@ async function startCcAuth(btn, statusEl) {
     ccauthPoll = setInterval(async () => {
       if (Date.now() > deadline) {
         clearInterval(ccauthPoll); ccauthPoll = null;
-        btn.disabled = false; btn.textContent = 'CommandCode'a Git';
+        btn.disabled = false; btn.textContent = "CommandCode'a Git";
         setCcAuthStatus(statusEl, '⏰ Zaman aşımı, tekrar deneyin.');
-        return;
-      }
+        return;      }
       try {
         const st = await api(`/api/commandcode-auth/status?state=${encodeURIComponent(ccauthState)}`);
         if (st.status === 'received') {
           clearInterval(ccauthPoll); ccauthPoll = null;
           setCcAuthStatus(statusEl, 'Key alındı ✅ hesaba ekleniyor...');
           await api('/api/commandcode-auth/apply', { method: 'POST', body: JSON.stringify({ state: ccauthState }) });
-          btn.disabled = false; btn.textContent = 'CommandCode'a Git';
+          btn.disabled = false; btn.textContent = "CommandCode'a Git";
           toast('Hesap eklendi ✅');
           ccauthState = null;
           // dashboard görünürse listeyi tazele

@@ -58,7 +58,9 @@ export function requireAdmin(req, res, next) {
 }
 
 export function loginAdmin(password) {
-  if (!password || password !== data.config.adminPassword) return null;
+  // trim: kopyala-yapıştırda kaçan boşluklar şifreyi bozmasın
+  const p = typeof password === 'string' ? password.trim() : password;
+  if (!p || p !== data.config.adminPassword) return null;
   return newSessionToken();
 }
 
