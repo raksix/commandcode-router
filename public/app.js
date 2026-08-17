@@ -56,9 +56,31 @@ $('#logout-btn').addEventListener('click', async () => {
 async function showDashboard() {
   $('#login-screen').classList.add('hidden');
   $('#dashboard').classList.remove('hidden');
+  setupNav();
   await loadModels();
   await refresh();
   setInterval(refresh, 10000); // auto-refresh stats every 10s
+}
+
+// ---- sidebar section navigation ----
+function setupNav() {
+  const links = $$('.side-link');
+  const show = (name) => {
+    links.forEach((l) => l.classList.toggle('active', l.dataset.section === name));
+    $$('.section').forEach((s) => s.classList.toggle('active', s.dataset.sectionPanel === name));
+  };
+  links.forEach((l) => {
+    l.addEventListener('click', (e) => {
+      e.preventDefault();
+      show(l.dataset.section);
+      // hash'i güncelle ama scroll tetikleme
+      history.replaceState(null, '', '#' + l.dataset.section);
+    });
+  });
+  // hash'e göre aç (örn. #docs)
+  const initial = location.hash.replace('#', '');
+  if (initial && links.some((l) => l.dataset.section === initial)) show(initial);
+  else show('overview');
 }
 
 // ---- CommandCode model list (for dropdowns + full list) ----
@@ -265,15 +287,14 @@ function renderDaily(daily) {
   $('#daily-output').textContent = fmtNum(d.outputTokens || 0);
   $('#daily-tokens').textContent = fmtNum((d.inputTokens || 0) + (d.outputTokens || 0));
 
-  // mini bar chart: son 14 gün
+  // mini bar chart: son 14 gün (hem Genel Bakış hem İstatistikler sayfasında göster)
   const days = [];
   for (let i = 13; i >= 0; i--) {
     const dt = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
     days.push({ day: dt, ...(daily?.[dt] || { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 }) });
   }
   const max = Math.max(...days.map((d2) => d2.total), 1);
-  const chart = $('#daily-chart');
-  chart.innerHTML = days.map((d2) => `
+  const chartHtml = days.map((d2) => `
     <div class="bar-col" title="${d2.day}: ${d2.total} istek (${d2.success} başarılı, ${d2.errors} hata)">
       <div class="bar-wrap">
         <div class="bar bar-ok" style="height:${Math.round((d2.success / max) * 100)}%"></div>
@@ -281,12 +302,14 @@ function renderDaily(daily) {
       </div>
       <div class="bar-lbl">${d2.day.slice(5)}</div>
     </div>`).join('');
+  $('#daily-chart').innerHTML = chartHtml;
   $('#daily-chart-hint').textContent = `Son 14 gün — yeşil başarılı, kırmızı hata.`;
+  const c2 = $('#daily-chart2');
+  if (c2) { c2.innerHTML = chartHtml; $('#daily-chart-hint2').textContent = `Son 14 gün — yeşil başarılı, kırmızı hata.`; }
 
   // token grafiği: mavi = girdi, turuncu = çıktı (son 14 gün)
   const maxTok = Math.max(...days.map((d2) => Math.max(d2.inputTokens || 0, d2.outputTokens || 0)), 1);
-  const tchart = $('#token-chart');
-  tchart.innerHTML = days.map((d2) => `
+  const tchartHtml = days.map((d2) => `
     <div class="bar-col" title="${d2.day}: ⬇ ${fmtNum(d2.inputTokens || 0)} / ⬆ ${fmtNum(d2.outputTokens || 0)} token">
       <div class="bar-wrap">
         <div class="bar bar-in" style="height:${Math.round(((d2.inputTokens || 0) / maxTok) * 100)}%"></div>
@@ -294,6 +317,9 @@ function renderDaily(daily) {
       </div>
       <div class="bar-lbl">${d2.day.slice(5)}</div>
     </div>`).join('');
+  $('#token-chart').innerHTML = tchartHtml;
+  const tc2 = $('#token-chart2');
+  if (tc2) { tc2.innerHTML = tchartHtml; }
 }
 
 function fmtNum(n) {
