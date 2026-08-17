@@ -5,3 +5,4 @@ state.json
 
 # Dependencies
 node_modules/
+core.*
