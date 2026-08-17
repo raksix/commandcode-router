@@ -14,6 +14,22 @@ export function isOssModel(model) {
   return !/^claude-/.test(model);
 }
 
+/**
+ * Hermes/gateway'ler model adına provider prefix'i ekleyebilir:
+ *   anthropic:cmd/deepseek/deepseek-v4-flash  ->  cmd/deepseek/deepseek-v4-flash
+ *   anthropic:claude-sonnet-5                 ->  claude-sonnet-5
+ * CommandCode bu prefix'leri tanımaz (403 "Model/provider not recognized"),
+ * bu yüzden upstream'e gitmeden önce temizlenir.
+ */
+export function cleanModelPrefix(model) {
+  if (!model || typeof model !== 'string') return model;
+  const idx = model.indexOf(':');
+  if (idx > 0 && /^[a-zA-Z0-9_-]+$/.test(model.slice(0, idx))) {
+    return model.slice(idx + 1);
+  }
+  return model;
+}
+
 /** Anthropic messages body -> OpenAI chat/completions body */
 export function anthropicToOpenAI(body) {
   const out = { model: body.model, messages: [] };

@@ -3,7 +3,7 @@ import { data, markDirty } from '../store.js';
 import { requireMasterKey } from '../auth.js';
 import { routeRequest, pickAccount, addLog, recordTokens } from '../pool.js';
 import { pipeToResponse, sendBuffer } from '../upstream.js';
-import { isOssModel, anthropicToOpenAI, openAIToAnthropic, openAISToAnthropicSSE, extractOpenAIUsage } from '../convert.js';
+import { isOssModel, anthropicToOpenAI, openAIToAnthropic, openAISToAnthropicSSE, extractOpenAIUsage, cleanModelPrefix } from '../convert.js';
 import {
   ALPHA_URL, alphaHeaders, anthropicToAlpha, openAIToAlpha,
   parseAlphaLine, createAlphaState, alphaEventToAnthropicSSE, alphaStateToAnthropicMessage,
@@ -108,6 +108,8 @@ proxyRouter.use('/v1', async (req, res) => {
   let upstreamRoute = route;   // yönlendirilirse değişir (/v1/messages -> /v1/chat/completions)
   if (req.method === 'POST' && (route.includes('/messages') || route.includes('/chat/completions'))) {
     if (typeof body === 'object' && body !== null) {
+      // Hermes/gateway prefix'lerini temizle (anthropic:cmd/... gibi)
+      if (typeof body.model === 'string') body.model = cleanModelPrefix(body.model);
       // OSS model (deepseek/gpt/...) ise Anthropic endpoint'i kabul etmiyor ->
       // chat/completions'a yönlendir + gövdeyi OpenAI formatına çevir
       if (isOssModel(body.model) && route.endsWith('/v1/messages')) {
@@ -306,6 +308,8 @@ async function handleAlpha(req, res, route, started) {
   let body = req.body ?? {};
   let clientStream = true;
   // Claude Code, yanıtın model alanında istekteki model adını bekler.
+  // Hermes/gateway prefix'lerini temizle (anthropic:cmd/... gibi)
+  if (typeof body.model === 'string') body.model = cleanModelPrefix(body.model);
   const clientModel = body.model ?? null;
 
   if (typeof body === 'object' && body !== null) {
