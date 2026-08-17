@@ -5,7 +5,7 @@ import { loginAdmin, logoutAdmin, requireAdmin } from '../auth.js';
 import { pickAccount } from '../pool.js';
 import {
   generateState, createAuthSession, hashState, getSession, consumeApiKey,
-  cleanupExpired, CALLBACK_URL, CALLBACK_PATH, STUDIO_AUTH_URL
+  cleanupExpired, CALLBACK_PORT, CALLBACK_PATH, STUDIO_AUTH_URL
 } from '../ccauth.js';
 
 export const adminRouter = Router();
@@ -276,7 +276,7 @@ adminRouter.post('/commandcode-auth/start', (req, res) => {
   cleanupExpired();
   const state = generateState();
   createAuthSession(state);
-  const callbackUrl = CALLBACK_URL;
+  const callbackUrl = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
   const authUrl = `${STUDIO_AUTH_URL}?callback=${encodeURIComponent(callbackUrl)}&state=${encodeURIComponent(state)}`;
   res.json({ state, authUrl, callbackUrl, expiresInSec: 15 * 60 });
 });

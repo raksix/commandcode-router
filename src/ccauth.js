@@ -17,8 +17,6 @@ export const CALLBACK_PORT = 5959;
 export const AUTH_TTL_MS = 15 * 60 * 1000; // 15 dk
 export const CALLBACK_PATH = '/callback';
 export const STUDIO_AUTH_URL = 'https://commandcode.ai/studio/auth/cli';
-/** Remote kullanım için CALLBACK_URL env ile override edilebilir (örn. https://commandcode-router.fermag.com.tr/callback) */
-export const CALLBACK_URL = process.env.CALLBACK_URL || `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
 
 /** 32 byte random state (base64url). Bu state kullanıcıya gider, hash'i saklanır. */
 export function generateState() {
