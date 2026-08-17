@@ -63,18 +63,6 @@ curl -X POST http://localhost:3000/v1/messages \
   -d '{"model":"claude-sonnet-4-5","max_tokens":100,"stream":true,"messages":[{"role":"user","content":"selam"}]}'
 ```
 
-## Model Eşleme
-
-Claude Code `claude-sonnet-4-5` gibi adlar gönderir; CommandCode `claude-sonnet-5` veya `deepseek/deepseek-v4-flash` gibi adlar bekler. Paneldeki **Model Eşleme** tablosundan eşlersin:
-
-| İstemcinin gönderdiği | CommandCode modeli |
-|---|---|
-| `claude-sonnet-4-*` | `claude-sonnet-5` |
-| `claude-haiku-4-*` | `claude-haiku-4-5-20251001` |
-| `claude-opus-4-*` | `claude-opus-5` |
-
-Tanımayan her istek **Varsayılan model**'e düşer. Eşleşmeyen model adı gönderilirse CommandCode "model not supported" hatası verir — o zaman panele doğru eşleme ekle.
-
 > 💡 CommandCode'un model listesini `GET /v1/models` ile görüntüleyebilirsin. Bazı modeller (örn. `claude-sonnet-5`, `claude-opus-5`) **Provider planı** gerektirir; Go planı hesaplarında `deepseek/...` veya OpenAI formatı gerekebilir.
 
 ## Yapılandırma (config.json)
@@ -85,8 +73,6 @@ Tanımayan her istek **Varsayılan model**'e düşer. Eşleşmeyen model adı g�
 | `masterKey` | İstemcilerin kullandığı API key |
 | `adminPassword` | Web paneli şifresi |
 | `accounts` | CommandCode key havuzu |
-| `modelMap` | Model eşleme tablosu |
-| `defaultModel` | Tanımayan isteklerin düştüğü model |
 | `retry.maxRetries` | Hata sonrası sıradaki hesaba geçiş sayısı (2) |
 | `retry.banAfter` | Otomatik ban eşiği (5 ardışık hata) |
 

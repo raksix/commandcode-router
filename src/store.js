@@ -14,12 +14,6 @@ const DEFAULT_CONFIG = {
   masterKey: null,
   adminPassword: null,
   accounts: [],
-  modelMap: {
-    'claude-sonnet-4-*': 'deepseek/deepseek-v4-flash',
-    'claude-haiku-4-*': 'deepseek/deepseek-v4-flash',
-    'claude-opus-4-*': 'deepseek/deepseek-v4-flash'
-  },
-  defaultModel: 'deepseek/deepseek-v4-flash',
   // /v1/models API'sinde sunulacak modeller. Boşsa = CommandCode'daki TÜM modeller döner.
   // Doluysa sadece bu listedekiler (Claude Code'a gösterilen model adları).
   exposedModels: [],

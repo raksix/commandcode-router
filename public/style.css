@@ -163,11 +163,6 @@ tr:last-child td { border-bottom: none; }
 .status-chip { font-family: var(--mono); font-size: 11.5px; padding: 2px 8px; border-radius: 5px; font-weight: 600; }
 .st-ok { background: #163425; color: var(--green); }
 .st-err { background: #3a2424; color: var(--red); }
-.map-val-select {
-  background: #1d2230; color: var(--text); border: 1px solid var(--border);
-  border-radius: 6px; padding: 5px 8px; font-family: var(--mono); font-size: 13px;
-  max-width: 340px;
-}
 
 /* ---- toast ---- */
 .toast {

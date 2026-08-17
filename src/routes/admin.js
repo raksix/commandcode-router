@@ -37,14 +37,6 @@ async function fetchModels() {
   }
 }
 
-/** Pick the newest model id for a family prefix (claude-opus-, claude-sonnet-, ...). */
-function pickLatest(ids, prefix, fallback) {
-  const candidates = ids.filter((id) => id.startsWith(prefix));
-  if (!candidates.length) return fallback;
-  candidates.sort().reverse(); // claude-sonnet-5 > claude-sonnet-4-6
-  return candidates[0];
-}
-
 // ---- auth endpoints ----
 adminRouter.post('/login', (req, res) => {
   const { password } = req.body ?? {};
@@ -89,8 +81,6 @@ adminRouter.get('/status', (req, res) => {
     roundRobinIndex: data.state.roundRobinIndex,
     stats: data.state.stats,
     accounts,
-    modelMap: data.config.modelMap,
-    defaultModel: data.config.defaultModel,
     exposedModels: data.config.exposedModels || [],
     retry: data.config.retry,
     logs: data.state.logs || [],
@@ -206,55 +196,6 @@ adminRouter.post('/master-key', (req, res) => {
 adminRouter.get('/models', async (req, res) => {
   const models = await fetchModels();
   res.json({ models });
-});
-
-// ---- auto-map: fill modelMap from latest CommandCode Claude models ----
-adminRouter.post('/model-map/auto', async (req, res) => {
-  const models = await fetchModels();
-  const ids = models.map((m) => m.id);
-
-  const opus = pickLatest(ids, 'claude-opus-', null);
-  const sonnet = pickLatest(ids, 'claude-sonnet-', null);
-  const haiku = pickLatest(ids, 'claude-haiku-', null);
-  const fable = pickLatest(ids, 'claude-fable-', null);
-
-  const map = {
-    'claude-opus-4-*': opus ?? 'claude-opus-5',
-    'claude-opus-3-*': opus ?? 'claude-opus-5',
-    'claude-sonnet-4-*': sonnet ?? 'claude-sonnet-5',
-    'claude-sonnet-3-*': sonnet ?? 'claude-sonnet-5',
-    'claude-haiku-4-*': haiku ?? 'claude-haiku-4-5-20251001',
-    'claude-haiku-3-*': haiku ?? 'claude-haiku-4-5-20251001',
-    'claude-fable-*': fable ?? 'claude-fable-5'
-  };
-  data.config.modelMap = map;
-  data.config.defaultModel = sonnet ?? 'claude-sonnet-5';
-  markDirty();
-  res.json({ ok: true, modelMap: data.config.modelMap, defaultModel: data.config.defaultModel, found: { opus, sonnet, haiku, fable } });
-});
-
-// ---- model map ----
-adminRouter.post('/model-map', (req, res) => {
-  const { key, value } = req.body ?? {};
-  if (!key || !value) { res.status(400).json({ error: 'key ve value gerekli' }); return; }
-  data.config.modelMap[key] = value;
-  markDirty();
-  res.json({ ok: true, modelMap: data.config.modelMap });
-});
-
-adminRouter.delete('/model-map/:key', (req, res) => {
-  const key = decodeURIComponent(req.params.key);
-  delete data.config.modelMap[key];
-  markDirty();
-  res.json({ ok: true, modelMap: data.config.modelMap });
-});
-
-adminRouter.post('/model-map/default', (req, res) => {
-  const { model } = req.body ?? {};
-  if (!model) { res.status(400).json({ error: 'model gerekli' }); return; }
-  data.config.defaultModel = String(model).trim();
-  markDirty();
-  res.json({ ok: true, defaultModel: data.config.defaultModel });
 });
 
 // ---- exposedModels: /v1/models API'sinde sunulacak model listesi ----

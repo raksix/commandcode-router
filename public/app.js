@@ -110,14 +110,6 @@ function renderExposedList() {
     });
   });
 }
-function modelOptions(selected) {
-  if (!ccModels.length) {
-    return `<input id="map-val" class="mono" value="${esc(selected || '')}" />`;
-  }
-  const opts = ccModels.map((id) => `<option value="${esc(id)}" ${id === selected ? 'selected' : ''}>${esc(id)}</option>`).join('');
-  return `<select class="map-val-select mono">${opts}</select>`;
-}
-
 // ---- render ----
 async function refresh() {
   let status;
@@ -147,7 +139,6 @@ async function refresh() {
 
   // accounts
   renderAccounts(status.accounts);
-  renderModelMap(status.modelMap, status.defaultModel);
 
   // istatistik + loglar
   renderDaily(status.daily);
@@ -236,35 +227,6 @@ function renderAccounts(accounts) {
       refresh();
     });
 
-    tbody.appendChild(tr);
-  }
-}
-
-function renderModelMap(modelMap, defaultModel) {
-  $('#default-model').value = defaultModel || '';
-  const tbody = $('#modelmap-body');
-  tbody.innerHTML = '';
-  for (const [k, v] of Object.entries(modelMap)) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="mono">${esc(k)}</td>
-      <td>${modelOptions(v)}</td>
-      <td style="text-align:right"><button class="btn btn-small btn-danger del-map">Sil</button></td>
-    `;
-    // dropdown change -> save immediately
-    const sel = tr.querySelector('.map-val-select');
-    if (sel) {
-      sel.addEventListener('change', async () => {
-        try {
-          await api('/api/model-map', { method: 'POST', body: JSON.stringify({ key: k, value: sel.value }) });
-          toast(`Eşleme güncellendi: ${k} → ${sel.value}`);
-        } catch (err) { toast(err.message, 'err'); }
-      });
-    }
-    tr.querySelector('.del-map').addEventListener('click', async () => {
-      await api(`/api/model-map/${encodeURIComponent(k)}`, { method: 'DELETE' });
-      refresh();
-    });
     tbody.appendChild(tr);
   }
 }
@@ -369,22 +331,8 @@ $('#add-account-form').addEventListener('submit', async (e) => {
   } catch (err) { toast(err.message, 'err'); }
 });
 
-// ---- model map ----
-$('#auto-map-btn').addEventListener('click', async () => {
-  $('#auto-map-btn').disabled = true;
-  $('#auto-map-btn').textContent = 'Eşleniyor...';
-  try {
-    const r = await api('/api/model-map/auto', { method: 'POST' });
-    await loadModels();
-    toast(`Otomatik eşleme tamam: Sonnet=${r.found.sonnet || '—'}, Opus=${r.found.opus || '—'}, Haiku=${r.found.haiku || '—'}, Fable=${r.found.fable || '—'}`);
-    refresh();
-  } catch (err) { toast(err.message, 'err'); }
-  $('#auto-map-btn').disabled = false;
-  $('#auto-map-btn').textContent = '⚡ Otomatik Eşle';
-});
-
+// ---- model listesi ----
 $('#refresh-models-btn').addEventListener('click', async () => {
-  $('#refresh-models-btn').disabled = true;
   await loadModels();
   renderExposedList();
   toast(`Model listesi güncellendi (${ccModels.length} model)`);
@@ -407,28 +355,6 @@ $('#expose-all-btn').addEventListener('click', async () => {
     await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: [...exposedSelection] }) });
     toast('Tüm modeller API\'de sunuluyor');
     refresh();
-  } catch (err) { toast(err.message, 'err'); }
-});
-
-$('#add-map-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const key = $('#map-key').value.trim();
-  const val = $('#map-val').value.trim();
-  if (!key || !val) return;
-  try {
-    await api('/api/model-map', { method: 'POST', body: JSON.stringify({ key, value: val }) });
-    $('#map-key').value = '';
-    $('#map-val').value = '';
-    refresh();
-  } catch (err) { toast(err.message, 'err'); }
-});
-
-$('#default-model').addEventListener('change', async (e) => {
-  const model = e.target.value.trim();
-  if (!model) return;
-  try {
-    await api('/api/model-map/default', { method: 'POST', body: JSON.stringify({ model }) });
-    toast('Varsayılan model güncellendi');
   } catch (err) { toast(err.message, 'err'); }
 });
 

@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { data, markDirty } from '../store.js';
 import { requireMasterKey } from '../auth.js';
-import { mapModel } from '../modelmap.js';
 import { routeRequest, pickAccount, addLog, recordTokens } from '../pool.js';
 import { pipeToResponse, sendBuffer } from '../upstream.js';
 import { isOssModel, anthropicToOpenAI, openAIToAnthropic, openAISToAnthropicSSE, extractOpenAIUsage } from '../convert.js';
@@ -105,16 +104,10 @@ proxyRouter.use('/v1', async (req, res) => {
   // apply model mapping on message bodies
   let body = req.body ?? {};
   let rawBody = null;
-  let mappedTo = null;
   let convertOss = false;      // OSS model -> /v1/chat/completions + format dönüşümü
   let upstreamRoute = route;   // yönlendirilirse değişir (/v1/messages -> /v1/chat/completions)
   if (req.method === 'POST' && (route.includes('/messages') || route.includes('/chat/completions'))) {
     if (typeof body === 'object' && body !== null) {
-      const mapped = mapModel(body.model, data.config, data.state);
-      if (mapped !== body.model) {
-        mappedTo = body.model;
-        body.model = mapped;
-      }
       // OSS model (deepseek/gpt/...) ise Anthropic endpoint'i kabul etmiyor ->
       // chat/completions'a yönlendir + gövdeyi OpenAI formatına çevir
       if (isOssModel(body.model) && route.endsWith('/v1/messages')) {
@@ -144,7 +137,6 @@ proxyRouter.use('/v1', async (req, res) => {
     method: req.method,
     route: upstreamRoute,
     model: body.model ?? req.body?.model,
-    mappedTo,
     account: result.account?.name ?? null,
     status: result.status,
     ok: result.status >= 200 && result.status < 300,
@@ -312,15 +304,11 @@ function pickForwardHeaders(req) {
 async function handleAlpha(req, res, route, started) {
   const isAnthropic = route.endsWith('/v1/messages');
   let body = req.body ?? {};
-  let mappedTo = null;
   let clientStream = true;
   // Claude Code, yanıtın model alanında istekteki model adını bekler.
-  // Map sonrası upstream adı dönerse (deepseek/...) istemci "malformed" der.
   const clientModel = body.model ?? null;
 
   if (typeof body === 'object' && body !== null) {
-    const mapped = mapModel(body.model, data.config, data.state);
-    if (mapped !== body.model) { mappedTo = body.model; body.model = mapped; }
     // İstemci tek JSON yanıt istiyorsa (stream:false) clientStream kapatılır ve
     // event'ler toplanıp tek JSON üretilir. İstemci SSE bekliyorsa (stream:true,
     // jcode vb.) clientStream açık kalır ve dönüştürülmüş SSE akıtılır.
@@ -361,7 +349,6 @@ async function handleAlpha(req, res, route, started) {
     method: req.method,
     route: '/alpha/generate',
     model: body.model ?? req.body?.model,
-    mappedTo,
     account: result.account?.name ?? null,
     status: result.status,
     ok: result.status >= 200 && result.status < 300,
