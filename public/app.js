@@ -86,6 +86,28 @@ function renderModelList() {
     return `<span class="model-chip" title="${esc(m.name || '')}">${esc(m.id)}${ctx}</span>`;
   }).join('');
 }
+
+// ---- API'de sunulan modeller (exposedModels) ----
+let exposedSelection = new Set();
+function renderExposedList() {
+  const el = $('#exposed-list');
+  if (!ccModelDetails.length) {
+    el.innerHTML = '<span class="hint">Önce model listesi yüklensin (yukarıdaki Yenile).</span>';
+    return;
+  }
+  el.innerHTML = ccModelDetails.map((m) => {
+    const on = exposedSelection.has(m.id);
+    return `<span class="model-chip ${on ? 'chip-on' : ''}" data-id="${esc(m.id)}" title="Tıkla: ${on ? 'kaldır' : 'seç'}">${esc(m.id)}${on ? ' ✓' : ''}</span>`;
+  }).join('');
+  el.querySelectorAll('.model-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const id = chip.dataset.id;
+      if (exposedSelection.has(id)) exposedSelection.delete(id);
+      else exposedSelection.add(id);
+      renderExposedList();
+    });
+  });
+}
 function modelOptions(selected) {
   if (!ccModels.length) {
     return `<input id="map-val" class="mono" value="${esc(selected || '')}" />`;
@@ -124,6 +146,16 @@ async function refresh() {
   // accounts
   renderAccounts(status.accounts);
   renderModelMap(status.modelMap, status.defaultModel);
+
+  // exposed models (only reset selection if status.exposedModels changed)
+  if (status.exposedModels) {
+    const next = new Set(status.exposedModels);
+    const same = next.size === exposedSelection.size && [...next].every((x) => exposedSelection.has(x));
+    if (!same) {
+      exposedSelection = next;
+      renderExposedList();
+    }
+  }
 }
 
 function renderAccounts(accounts) {
@@ -268,8 +300,28 @@ $('#auto-map-btn').addEventListener('click', async () => {
 $('#refresh-models-btn').addEventListener('click', async () => {
   $('#refresh-models-btn').disabled = true;
   await loadModels();
+  renderExposedList();
   toast(`Model listesi güncellendi (${ccModels.length} model)`);
   $('#refresh-models-btn').disabled = false;
+});
+
+// exposed models: kaydet / tümünü göster
+$('#expose-save-btn').addEventListener('click', async () => {
+  try {
+    const r = await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: [...exposedSelection] }) });
+    toast(r.exposedModels.length ? `API'de ${r.exposedModels.length} model sunuluyor` : 'Tüm modeller sunuluyor (filtre yok)');
+    refresh();
+  } catch (err) { toast(err.message, 'err'); }
+});
+
+$('#expose-all-btn').addEventListener('click', async () => {
+  exposedSelection = new Set(ccModels);
+  renderExposedList();
+  try {
+    await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: [...exposedSelection] }) });
+    toast('Tüm modeller API\'de sunuluyor');
+    refresh();
+  } catch (err) { toast(err.message, 'err'); }
 });
 
 $('#add-map-form').addEventListener('submit', async (e) => {

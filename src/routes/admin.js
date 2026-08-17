@@ -87,6 +87,7 @@ adminRouter.get('/status', (req, res) => {
     accounts,
     modelMap: data.config.modelMap,
     defaultModel: data.config.defaultModel,
+    exposedModels: data.config.exposedModels || [],
     retry: data.config.retry
   });
 });
@@ -235,6 +236,19 @@ adminRouter.post('/model-map/default', (req, res) => {
   data.config.defaultModel = String(model).trim();
   markDirty();
   res.json({ ok: true, defaultModel: data.config.defaultModel });
+});
+
+// ---- exposedModels: /v1/models API'sinde sunulacak model listesi ----
+adminRouter.post('/exposed-models', (req, res) => {
+  const { models } = req.body ?? {};
+  if (!Array.isArray(models)) {
+    res.status(400).json({ error: 'models (array) gerekli' });
+    return;
+  }
+  // boş array = tüm modelleri sun (filtre yok)
+  data.config.exposedModels = models.map((m) => String(m).trim()).filter(Boolean);
+  markDirty();
+  res.json({ ok: true, exposedModels: data.config.exposedModels });
 });
 
 // ---- admin password ----

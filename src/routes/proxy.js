@@ -17,41 +17,73 @@ function upstreamUrl(req) {
   return UPSTREAM_BASE + req.originalUrl;
 }
 
-// ---- GET /v1/models (cached 5 min) ----
+// ---- GET /v1/models (cached 5 min; config'te exposedModels varsa filtreler) ----
 proxyRouter.get('/v1/models', async (req, res) => {
   const now = Date.now();
   const cache = data.state.modelsCache;
   const ttl = (data.config.modelsCacheTtlSec ?? 300) * 1000;
 
+  const sendJson = (body, status = 200) => {
+    sendBuffer({
+      res, status,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      bodyBuffer: JSON.stringify(body)
+    });
+  };
+
+  // --- taze çek (cache'li) ---
+  let upstreamText = null;
   if (cache.data && cache.at && now - cache.at < ttl) {
+    upstreamText = cache.data;
+  } else {
+    const account = pickAccount();
+    if (!account) {
+      sendJson({ error: 'aktif hesap yok' }, 503);
+      return;
+    }
+    try {
+      const up = await fetch(UPSTREAM_BASE + '/v1/models', {
+        headers: { authorization: `Bearer ${account.apiKey}` }
+      });
+      upstreamText = await up.text();
+      if (up.ok) {
+        cache.data = upstreamText;
+        cache.at = now;
+        markDirty();
+      } else {
+        sendJson({ error: 'models alınamadı' }, up.status);
+        return;
+      }
+    } catch (err) {
+      sendJson({ error: `models alınamadı: ${err.message}` }, 502);
+      return;
+    }
+  }
+
+  // --- exposedModels filtresi ---
+  const exposed = data.config.exposedModels || [];
+  if (!exposed.length) {
+    // boşsa hepsi aynen döner (cache'teki ham gövde)
     sendBuffer({
       res, status: 200,
       headers: new Headers({ 'content-type': 'application/json' }),
-      bodyBuffer: cache.data
+      bodyBuffer: upstreamText
     });
     return;
   }
 
-  const account = pickAccount();
-  if (!account) {
-    res.status(503).json({ error: 'aktif hesap yok' });
-    return;
-  }
-
-  try {
-    const up = await fetch(UPSTREAM_BASE + '/v1/models', {
-      headers: { authorization: `Bearer ${account.apiKey}` }
-    });
-    const text = await up.text();
-    if (up.ok) {
-      cache.data = text;
-      cache.at = now;
-      markDirty();
+  // doluysa: CommandCode modellerini çek, sadece exposed olanları sun
+  let allModels = [];
+  try { allModels = JSON.parse(upstreamText).data ?? []; } catch { allModels = []; }
+  const allowed = new Set(exposed);
+  const filtered = allModels.filter((m) => allowed.has(m.id));
+  // exposed'ta olup CommandCode'da bulunamayanları da ekle (API tutarlı olsun)
+  for (const id of exposed) {
+    if (!filtered.some((m) => m.id === id)) {
+      filtered.push({ id, object: 'model', created: 0, owned_by: 'command-code', name: id, context_length: null });
     }
-    res.status(up.status).set('content-type', 'application/json').end(text);
-  } catch (err) {
-    res.status(502).json({ error: `models alınamadı: ${err.message}` });
   }
+  sendJson({ object: 'list', data: filtered });
 });
 
 // ---- any other /v1/* request -> passthrough (POST /v1/messages, chat/completions, etc.) ----

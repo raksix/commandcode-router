@@ -20,6 +20,9 @@ const DEFAULT_CONFIG = {
     'claude-opus-4-*': 'deepseek/deepseek-v4-flash'
   },
   defaultModel: 'deepseek/deepseek-v4-flash',
+  // /v1/models API'sinde sunulacak modeller. Boşsa = CommandCode'daki TÜM modeller döner.
+  // Doluysa sadece bu listedekiler (Claude Code'a gösterilen model adları).
+  exposedModels: [],
   retry: { maxRetries: 2, banAfter: 5 },
   modelsCacheTtlSec: 300
 };

@@ -99,6 +99,16 @@
       <p class="hint">CommandCode API'den çekilen güncel model listesi. Eşleme yaparken buradaki adları kullan.</p>
       <div class="model-list" id="model-list"></div>
     </section>
+
+    <!-- API'de sunulan modeller -->
+    <section class="card">
+      <h2>🌐 API'de Sunulan Modeller
+        <button id="expose-all-btn" class="btn btn-small">Tümünü Göster</button>
+        <button id="expose-save-btn" class="btn btn-small btn-primary">Kaydet</button>
+      </h2>
+      <p class="hint">Claude Code'a (<code>/v1/models</code>) gösterilecek model adları. Aşağıdan seç — seçilenler API'de listelenir, isteklerde kullanılabilir. "Tümünü Göster" = filtresiz.</p>
+      <div class="model-list" id="exposed-list"></div>
+    </section>
   </div>
 
   <!-- Toast -->
