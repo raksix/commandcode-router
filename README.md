@@ -1,90 +1,97 @@
 # CommandCode Router
 
-Anthropic API uyumlu bir proxy. Claude Code (veya herhangi bir Anthropic SDK), senin ürettiğin **master API key** ile proxy'ye bağlanır; proxy ise istekleri bir **CommandCode API key havuzuna round-robin** dağıtır. Yani 10 hesap eklersen, 10 key otomatik dönüşümlü kullanılır. Bir hesap hata verirse sıradakine geçer, çok hata verirse otomatik banlanır.
+Anthropic-compatible API proxy. Claude Code (or any Anthropic SDK client) connects to the proxy with a **master API key** you generate; the proxy distributes requests **round-robin** across a **pool of CommandCode API keys**. Add 10 accounts and all 10 keys are used in rotation automatically. If an account errors, the proxy falls through to the next one; too many consecutive errors and the account is auto-banned.
 
 ```
-Claude Code ──(masterKey)──► Router ──(round-robin)──► CommandCode hesap 1
-   (Anthropic formatı)         :3000  ├──► CommandCode hesap 2
-                                     ├──► ...
-                                     └──► CommandCode hesap 10
+Claude Code ──(masterKey)──► Router ──(round-robin)──► CommandCode account 1
+   (Anthropic format)         :3025  ├──► CommandCode account 2
+                                    ├──► ...
+                                    └──► CommandCode account 10
 ```
 
-## Özellikler
+## Features
 
-- **Anthropic uyumlu endpoint** — `POST /v1/messages`, `GET /v1/models` (SSE streaming dahil)
-- **OpenAI uyumlu endpoint** — `POST /v1/chat/completions`
-- **Round-robin dağıtım** — her istek sıradaki hesaba gider (restart'ta sıra korunur)
-- **Auto-fallback** — 401/429/5xx'te sıradaki hesaba geçer (max 2 retry)
-- **Otomatik ban** — ardışık 5 hata sonrası hesap devre dışı kalır, panelden kaldırılır
-- **Web paneli** — hesap ekle/sil/test, master key üret/yenile, model eşleme, sayaçlar
-- **Model eşleme** — Claude Code'un gönderdiği `claude-...` adlarını CommandCode modellerine eşler
+- **Anthropic-compatible endpoint** — `POST /v1/messages`, `GET /v1/models` (SSE streaming included)
+- **OpenAI-compatible endpoint** — `POST /v1/chat/completions`
+- **Round-robin distribution** — every request goes to the next account (order survives restarts)
+- **Auto-fallback** — on 401/429/5xx switches to the next account (max 2 retries)
+- **Auto-ban** — after 5 consecutive errors an account is disabled and can be removed from the panel
+- **Multiple master API keys** — create named keys (MacBook, VPS, ...), copy/regenerate/delete each independently
+- **Web panel** — add/remove/test accounts, manage keys, model list, per-account stats, request logs, API docs
+- **Model prefix stripping** — strips gateway prefixes (`anthropic:cmd/...` → `cmd/...`) so CommandCode never rejects the model name
+- **OSS model conversion** — deepseek/gpt/... models sent via `/v1/messages` are auto-converted to OpenAI format (`/v1/chat/completions`)
 
-## Kurulum
+## Setup
 
 ```bash
-cd C:\Users\raksi\commandcode-router
+git clone https://github.com/raksix/commandcode-router.git
+cd commandcode-router
 npm install
 npm start
 ```
 
-İlk açılışta `config.json` otomatik üretilir ve konsola **Master API Key** + **Admin şifresi** yazılır. Bu değerleri kaydet (sonradan panelden de görebilirsin).
+On first launch `config.json` is generated automatically and the **Master API Key** + **Admin password** are printed to the console. Save these values (you can also view them later from the panel).
 
-## Kullanım
+## Usage
 
-1. Tarayıcıdan `http://localhost:3000` aç, admin şifresiyle gir.
-2. **Hesaplar** bölümünden CommandCode API key'lerini ekle (`+ Hesap Ekle`). Her key bir "hesap".
-3. Her hesabı **Test** butonuyla doğrula (CommandCode'dan model listesi çeker).
-4. **Master API Key** kartındaki key'i Claude Code'a bağla.
+1. Open the web panel (`http://localhost:3025` by default) and sign in with the admin password.
+2. In **Hesaplar (Accounts)**, add your CommandCode API keys via `+ Hesap Ekle`. Each key is one "account".
+3. Verify each account with the **Test** button (fetches the model list from CommandCode).
+4. Create a master key in **API Anahtarları (API Keys)** and point Claude Code at the proxy.
 
-### Claude Code bağlama
+### Connecting Claude Code
 
 ```bash
-# proje bazlı .env veya global ayarlar (settings.json env bloğu)
-ANTHROPIC_BASE_URL=http://localhost:3000
+# project-level .env or global settings (settings.json env block)
+ANTHROPIC_BASE_URL=https://commandcode-router.fermag.com.tr
 ANTHROPIC_AUTH_TOKEN=<masterKey>
 ```
 
-> ⚠️ `ANTHROPIC_BASE_URL` sonuna `/v1` **EKLEME** — Claude Code kendisi `/v1/messages` ekler.
+> ⚠️ Do **NOT** append `/v1` to `ANTHROPIC_BASE_URL` — Claude Code appends `/v1/messages` itself.
 
-Modeli netleştirmek istersen istemci tarafında override edebilirsin:
+To pin a model, override it client-side:
+
 ```bash
 ANTHROPIC_MODEL=deepseek/deepseek-v4-flash
 ```
 
-### cURL ile test
+### cURL test
 
 ```bash
-curl http://localhost:3000/v1/models -H "Authorization: Bearer <masterKey>"
+curl https://commandcode-router.fermag.com.tr/v1/models -H "Authorization: Bearer <masterKey>"
 
-curl -X POST http://localhost:3000/v1/messages \
+curl -X POST https://commandcode-router.fermag.com.tr/v1/messages \
   -H "Authorization: Bearer <masterKey>" \
   -H "Content-Type: application/json" \
   -H "anthropic-version: 2023-06-01" \
-  -d '{"model":"claude-sonnet-4-5","max_tokens":100,"stream":true,"messages":[{"role":"user","content":"selam"}]}'
+  -d '{"model":"deepseek/deepseek-v4-flash","max_tokens":100,"stream":true,"messages":[{"role":"user","content":"hi"}]}'
 ```
 
-> 💡 CommandCode'un model listesini `GET /v1/models` ile görüntüleyebilirsin. Bazı modeller (örn. `claude-sonnet-5`, `claude-opus-5`) **Provider planı** gerektirir; Go planı hesaplarında `deepseek/...` veya OpenAI formatı gerekebilir.
+> 💡 List the available models with `GET /v1/models`. Some models (e.g. `claude-sonnet-5`, `claude-opus-5`) require a **Provider plan**; Go-plan accounts can use `deepseek/...` or other OpenAI-format models.
 
-## Yapılandırma (config.json)
+## Configuration (config.json)
 
-| Alan | Açıklama |
+| Field | Description |
 |---|---|
-| `port` | Sunucu portu (varsayılan 3000) |
-| `masterKey` | İstemcilerin kullandığı API key |
-| `adminPassword` | Web paneli şifresi |
-| `accounts` | CommandCode key havuzu |
-| `retry.maxRetries` | Hata sonrası sıradaki hesaba geçiş sayısı (2) |
-| `retry.banAfter` | Otomatik ban eşiği (5 ardışık hata) |
+| `port` | Server port (default 3025) |
+| `masterKeys` | Array of `{ id, name, key, createdAt, lastUsedAt }` — client API keys |
+| `adminPassword` | Web panel password |
+| `accounts` | CommandCode key pool |
+| `exposedModels` | Models advertised via `/v1/models` (empty = all) |
+| `retry.maxRetries` | Fallback switches per request (2) |
+| `retry.banAfter` | Auto-ban threshold (5 consecutive errors) |
 
-## Güvenlik Notları
+## Security Notes
 
-- API key'ler `config.json` içinde **düz metin** durur (`.gitignore`'da, localhost kullanımı için kabul edilir).
-- `/v1/*` mutlaka masterKey ister.
-- Web paneli ayrı admin şifresi + HttpOnly cookie (5 dk oturum).
-- Sistemi internete açarsan mutlaka önüne bir auth katmanı koy.
+- API keys are stored **in plain text** in `config.json` (gitignored — acceptable for a self-hosted proxy).
+- Every `/v1/*` endpoint requires a valid master key.
+- The web panel uses a separate admin password + HttpOnly cookie session.
+- If you expose the proxy to the internet, put an auth layer in front of it.
 
-## Sorun Giderme
+## Troubleshooting
 
-- **`Model "X" is not supported on this endpoint`** → Model eşleme tablosuna doğru CommandCode model adını ekle.
-- **`permission_error` / "Your Go plan doesn't include API access"** → O CommandCode hesabı API erişimine açık değil (Provider planı gerekebilir). Başka bir hesap/key dene veya test et.
-- **Port dolu** → `netstat -ano | grep 3000` ile süreci bul, kapat, tekrar `npm start`.
+- **`Model "X" is not supported on this endpoint`** → Use a model the account's plan supports (check `GET /v1/models`). Go-plan accounts: `deepseek/...` etc.
+- **`permission_error` / "Your Go plan doesn't include API access"** → That CommandCode account has no API access (Provider plan required). Try another account/key.
+- **`Model/provider not recognized: anthropic:...`** → A gateway sent a prefixed model name. The router strips these automatically (see `cleanModelPrefix` in `src/convert.js`); make sure you're running the latest code.
+- **Responses arrive all at once instead of streaming** → nginx `proxy_buffering` must be `off` in the vhost (`proxy_buffering off; proxy_cache off; chunked_transfer_encoding on;`).
+- **Port already in use** → `netstat -tlnp | grep 3025`, kill the process, then `npm start` again.
