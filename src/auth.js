@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { data } from './store.js';
+import { data, markDirty } from './store.js';
 
 // ---- Master key auth (for /v1/*) ----
 export function requireMasterKey(req, res, next) {
@@ -18,24 +18,42 @@ export function requireMasterKey(req, res, next) {
   next();
 }
 
-// ---- Admin session (cookie-based, in-memory) ----
-const sessions = new Map(); // token -> expiry ts
-const SESSION_TTL_MS = 5 * 60 * 1000;
+// ---- Admin session (cookie-based, kalıcı — state.json'da tutulur) ----
+// Kullanıcı isteği: bir kez login ol → session cookie olarak kaydedilir,
+// restart dahil uzun süre geçerli kalsın. 30 gün TTL.
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 gün
+
+function sessions() {
+  if (!data.state.sessions) data.state.sessions = {};
+  return data.state.sessions;
+}
 
 function newSessionToken() {
   const token = crypto.randomBytes(32).toString('hex');
-  sessions.set(token, Date.now() + SESSION_TTL_MS);
+  sessions()[token] = Date.now() + SESSION_TTL_MS;
+  markDirty(); // session'ı state.json'a yaz (restart'ta da kalsın)
   return token;
+}
+
+function isSessionValid(token) {
+  const s = sessions();
+  const expiry = s[token];
+  if (!expiry) return false;
+  if (Date.now() > expiry) { // süresi dolmuşsa temizle
+    delete s[token];
+    return false;
+  }
+  // sliding expiry: her istekte süreyi uzat
+  s[token] = Date.now() + SESSION_TTL_MS;
+  return true;
 }
 
 export function requireAdmin(req, res, next) {
   const token = req.cookies?.cc_admin;
-  if (!token || !sessions.has(token)) {
+  if (!token || !isSessionValid(token)) {
     res.status(401).json({ error: 'oturum gerekli' });
     return;
   }
-  // sliding expiry
-  sessions.set(token, Date.now() + SESSION_TTL_MS);
   next();
 }
 
@@ -45,7 +63,8 @@ export function loginAdmin(password) {
 }
 
 export function logoutAdmin(token) {
-  sessions.delete(token);
+  delete sessions()[token];
+  markDirty();
 }
 
 // ---- tiny cookie parser (avoid extra dep) ----

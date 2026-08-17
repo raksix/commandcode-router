@@ -49,7 +49,7 @@ adminRouter.post('/login', (req, res) => {
     res.status(401).json({ error: 'yanlış şifre' });
     return;
   }
-  res.setHeader('Set-Cookie', `cc_admin=${token}; HttpOnly; Path=/; SameSite=Strict; Max-Age=${5 * 60}`);
+  res.setHeader('Set-Cookie', `cc_admin=${token}; HttpOnly; Path=/; SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}`);
   res.json({ ok: true });
 });
 

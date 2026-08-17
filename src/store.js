@@ -28,7 +28,8 @@ const DEFAULT_STATE = {
   roundRobinIndex: 0,
   accounts: {},
   stats: { totalRequests: 0, success: 0, errors: 0, byRoute: {} },
-  modelsCache: { data: null, at: null }
+  modelsCache: { data: null, at: null },
+  sessions: {} // admin session token -> expiry ts (kalıcı login)
 };
 
 /** @type {{ config: object, state: object }} */
