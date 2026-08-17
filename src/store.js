@@ -35,6 +35,7 @@ const DEFAULT_STATE = {
   sessions: {}, // admin session token -> expiry ts (kalıcı login)
   logs: [],     // son istek logları (max 300)
   daily: {},    // günlük istatistik: 'YYYY-MM-DD' -> { total, success, errors, inputTokens, outputTokens }
+  ccauth: {},   // CommandCode CLI auth: sha256(state) -> { status, apiKey, metadata, createdAt, expiresAt, appliedAt }
 };
 
 /** @type {{ config: object, state: object }} */

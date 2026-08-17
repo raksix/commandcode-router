@@ -431,6 +431,54 @@ $('#default-model').addEventListener('change', async (e) => {
   } catch (err) { toast(err.message, 'err'); }
 });
 
+// ---- CommandCode auth (tarayıcıda giriş -> hesap otomatik eklenir) ----
+let ccauthPoll = null;
+let ccauthState = null;
+
+async function startCcAuth(btn, statusEl) {
+  // varsa eski poll'u durdur
+  if (ccauthPoll) { clearInterval(ccauthPoll); ccauthPoll = null; }
+  try {
+    const r = await api('/api/commandcode-auth/start', { method: 'POST' });
+    ccauthState = r.state;
+    window.open(r.authUrl, '_blank');
+    btn.disabled = true;
+    btn.textContent = 'Giriş bekleniyor...';
+    setCcAuthStatus(statusEl, 'CommandCode açıldı — tarayıcıda giriş yapın. Bekleniyor...');
+    const deadline = Date.now() + r.expiresInSec * 1000;
+    ccauthPoll = setInterval(async () => {
+      if (Date.now() > deadline) {
+        clearInterval(ccauthPoll); ccauthPoll = null;
+        btn.disabled = false; btn.textContent = 'CommandCode'a Git';
+        setCcAuthStatus(statusEl, '⏰ Zaman aşımı, tekrar deneyin.');
+        return;
+      }
+      try {
+        const st = await api(`/api/commandcode-auth/status?state=${encodeURIComponent(ccauthState)}`);
+        if (st.status === 'received') {
+          clearInterval(ccauthPoll); ccauthPoll = null;
+          setCcAuthStatus(statusEl, 'Key alındı ✅ hesaba ekleniyor...');
+          await api('/api/commandcode-auth/apply', { method: 'POST', body: JSON.stringify({ state: ccauthState }) });
+          btn.disabled = false; btn.textContent = 'CommandCode'a Git';
+          toast('Hesap eklendi ✅');
+          ccauthState = null;
+          // dashboard görünürse listeyi tazele
+          if (!$('#dashboard').classList.contains('hidden')) refresh();
+        }
+      } catch {}
+    }, 2000);
+  } catch (err) {
+    setCcAuthStatus(statusEl, `❌ ${err.message}`);
+  }
+}
+
+function setCcAuthStatus(el, msg) {
+  if (el) el.textContent = msg;
+}
+
+$('#ccauth-btn').addEventListener('click', () => startCcAuth($('#ccauth-btn'), $('#ccauth-status')));
+$('#ccauth-add-btn').addEventListener('click', () => startCcAuth($('#ccauth-add-btn'), $('#ccauth-status')));
+
 // ---- master key actions ----
 $('#copy-key').addEventListener('click', () => {
   const mk = $('#master-key');

@@ -1,5 +1,7 @@
+import { createServer } from 'node:http';
 import { load, markDirty, flushNow, data } from './src/store.js';
 import { createApp } from './src/app.js';
+import { createCallbackHandler, CALLBACK_PORT, CALLBACK_PATH } from './src/ccauth.js';
 
 async function main() {
   await load();
@@ -14,6 +16,16 @@ async function main() {
     console.log('Claude Code bağlama:');
     console.log(`  ANTHROPIC_BASE_URL=http://localhost:${port}`);
     console.log(`  ANTHROPIC_AUTH_TOKEN=<masterKey>\n`);
+  });
+
+  // CommandCode CLI auth callback sunucusu (ana porttan ayrı)
+  const callbackServer = createServer(createCallbackHandler());
+  callbackServer.listen(CALLBACK_PORT, () => {
+    console.log(`CommandCode auth callback:  http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`);
+    console.log('  (CommandCode tarayıcı akışı key\'i buraya POST eder)\n');
+  });
+  callbackServer.on('error', (err) => {
+    console.error(`Callback sunucusu (${CALLBACK_PORT}) başlatılamadı:`, err.message);
   });
 
   // flush state on shutdown

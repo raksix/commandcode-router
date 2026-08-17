@@ -119,6 +119,13 @@ tr:last-child td { border-bottom: none; }
 .action-row { display: flex; gap: 6px; justify-content: flex-end; }
 
 .eye-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 13px; }
+.acc-actions { display: flex; gap: 6px; }
+
+/* ---- CommandCode auth (login ekranı) ---- */
+.ccauth-login {
+  margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
+}
+.ccauth-login h3 { font-size: 14px; margin-bottom: 6px; }
 
 /* ---- commandcode model list ---- */
 .model-list { display: flex; flex-wrap: wrap; gap: 8px; }

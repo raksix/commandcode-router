@@ -17,6 +17,12 @@
         <button type="submit" class="btn btn-primary">Giriş Yap</button>
       </form>
       <div id="login-error" class="error hidden"></div>
+      <div class="ccauth-login">
+        <h3>🔑 CommandCode ile Giriş</h3>
+        <p class="hint">Key kopyalamak yerine tarayıcıda CommandCode'a giriş yap, hesap otomatik eklenir.</p>
+        <button id="ccauth-btn" class="btn btn-primary" style="width:100%">CommandCode'a Git</button>
+        <div id="ccauth-status" class="hint" style="margin-top:8px"></div>
+      </div>
     </div>
   </div>
 
@@ -53,7 +59,12 @@
 
     <!-- Accounts -->
     <section class="card">
-      <h2>👥 Hesaplar <button id="add-account-toggle" class="btn btn-small">+ Hesap Ekle</button></h2>
+      <h2>👥 Hesaplar
+        <span class="acc-actions">
+          <button id="ccauth-add-btn" class="btn btn-small">➕ CommandCode'dan Ekle</button>
+          <button id="add-account-toggle" class="btn btn-small">+ Hesap Ekle</button>
+        </span>
+      </h2>
       <form id="add-account-form" class="hidden row-form">
         <input id="acc-name" placeholder="Hesap adı (örn. Hesap 1)" required />
         <input id="acc-key" class="mono" placeholder="CommandCode API key (cmd_... veya user_...)" required />

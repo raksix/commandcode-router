@@ -3,6 +3,10 @@ import crypto from 'node:crypto';
 import { data, getAccountState, markDirty } from '../store.js';
 import { loginAdmin, logoutAdmin, requireAdmin } from '../auth.js';
 import { pickAccount } from '../pool.js';
+import {
+  generateState, createAuthSession, hashState, getSession, consumeApiKey,
+  cleanupExpired, CALLBACK_PORT, CALLBACK_PATH, STUDIO_AUTH_URL
+} from '../ccauth.js';
 
 export const adminRouter = Router();
 
@@ -264,6 +268,71 @@ adminRouter.post('/exposed-models', (req, res) => {
   data.config.exposedModels = models.map((m) => String(m).trim()).filter(Boolean);
   markDirty();
   res.json({ ok: true, exposedModels: data.config.exposedModels });
+});
+
+// ---- CommandCode CLI auth (tarayıcıda giriş yap, key otomatik eklenir) ----
+// start: state üret, tarayıcıda açılacak authUrl döndür
+adminRouter.post('/commandcode-auth/start', (req, res) => {
+  cleanupExpired();
+  const state = generateState();
+  createAuthSession(state);
+  const callbackUrl = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
+  const authUrl = `${STUDIO_AUTH_URL}?callback=${encodeURIComponent(callbackUrl)}&state=${encodeURIComponent(state)}`;
+  res.json({ state, authUrl, callbackUrl, expiresInSec: 15 * 60 });
+});
+
+// status: panel poll eder — apiKey ASLA dönmez
+adminRouter.get('/commandcode-auth/status', (req, res) => {
+  const state = String(req.query.state || '');
+  if (!state) { res.status(400).json({ error: 'state gerekli' }); return; }
+  const s = getSession(hashState(state));
+  if (!s) {
+    res.status(404).json({ error: 'oturum bulunamadı veya zaman aşımı' });
+    return;
+  }
+  res.json({ status: s.status, metadata: s.metadata, expiresAt: s.expiresAt, appliedAt: s.appliedAt });
+});
+
+// apply: key'i hesaba ekle (tek kullanımlık)
+adminRouter.post('/commandcode-auth/apply', (req, res) => {
+  const state = String(req.body?.state || '');
+  if (!state) { res.status(400).json({ error: 'state gerekli' }); return; }
+  const hash = hashState(state);
+  const apiKey = consumeApiKey(hash);
+  if (!apiKey) {
+    res.status(400).json({ error: 'key yok (henüz alınmadı veya zaten uygulandı)' });
+    return;
+  }
+  const s = getSession(hash);
+  const meta = s?.metadata || {};
+  const name = meta.userName || meta.keyName || 'CommandCode';
+  // mevcut bir hesapta bu key zaten var mı? varsa uygulama ama yeni ekleme
+  const existing = (data.config.accounts || []).find((a) => a.apiKey === apiKey);
+  if (existing) {
+    res.json({ ok: true, alreadyExists: true, id: existing.id, name: existing.name, apiKeyMasked: maskKey(apiKey) });
+    return;
+  }
+  const account = {
+    id: crypto.randomUUID(),
+    name: String(name),
+    apiKey,
+    isActive: true
+  };
+  data.config.accounts.push(account);
+  markDirty();
+  res.status(201).json({ ok: true, alreadyExists: false, id: account.id, name: account.name, apiKeyMasked: maskKey(account.apiKey) });
+});
+
+// iptal: bekleyen session'ı sil (vazgeçme)
+adminRouter.delete('/commandcode-auth/state', (req, res) => {
+  const state = String(req.query.state || '');
+  if (!state) { res.status(400).json({ error: 'state gerekli' }); return; }
+  const hash = hashState(state);
+  if (data.state.ccauth[hash]) {
+    delete data.state.ccauth[hash];
+    markDirty();
+  }
+  res.json({ ok: true });
 });
 
 // ---- admin password ----
