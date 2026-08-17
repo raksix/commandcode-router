@@ -64,7 +64,7 @@ async function showDashboard() {
 
 // ---- sidebar section navigation ----
 function setupNav() {
-  const links = $$('.side-link');
+  const links = Array.from($$('.side-link'));  // NodeList -> Array (`.some` için)
   const show = (name) => {
     links.forEach((l) => l.classList.toggle('active', l.dataset.section === name));
     $$('.section').forEach((s) => s.classList.toggle('active', s.dataset.sectionPanel === name));
@@ -76,6 +76,11 @@ function setupNav() {
       // hash'i güncelle ama scroll tetikleme
       history.replaceState(null, '', '#' + l.dataset.section);
     });
+  });
+  // tarayıcı geri/ileri ya da elle hash değişince de section'ı aç
+  window.addEventListener('hashchange', () => {
+    const h = location.hash.replace('#', '');
+    if (h && links.some((l) => l.dataset.section === h)) show(h);
   });
   // hash'e göre aç (örn. #docs)
   const initial = location.hash.replace('#', '');
