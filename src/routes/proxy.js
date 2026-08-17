@@ -84,7 +84,9 @@ proxyRouter.get('/v1/models', async (req, res) => {
 
 // ---- any other /v1/* request -> passthrough (POST /v1/messages, chat/completions, etc.) ----
 proxyRouter.use('/v1', async (req, res) => {
-  const route = req.originalUrl;
+  // query string'i ayır — Claude Code /v1/messages?beta=true şeklinde istek atıyor
+  const [pathname, query = ''] = req.originalUrl.split('?');
+  const route = pathname;
   const started = Date.now();
 
   // apply model mapping on message bodies
@@ -116,7 +118,7 @@ proxyRouter.use('/v1', async (req, res) => {
   res.on('close', () => controller.abort());
 
   const result = await routeRequest({
-    url: UPSTREAM_BASE + upstreamRoute, // OSS'de upstreamRoute /v1/chat/completions olur
+    url: UPSTREAM_BASE + upstreamRoute + (query ? `?${query}` : ''), // OSS'de upstreamRoute /v1/chat/completions olur
     method: req.method,
     headers: pickForwardHeaders(req),
     body: req.method === 'GET' || req.method === 'HEAD' ? undefined : (rawBody ?? JSON.stringify(body)),
