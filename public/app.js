@@ -106,17 +106,24 @@ function setupNav() {
 }
 
 // ---- CommandCode model list (for dropdowns + full list) ----
-let ccModels = [];
-let ccModelDetails = [];
+let ccModels = [];           // unique key listesi: "provider::id"
+let ccModelDetails = [];     // [{ id, name, context_length, provider, accountName }]
+let ccModelByKey = new Map();// "provider::id" -> details
+
+function modelKey(m) { return `${m.provider}::${m.id}`; }
+
 async function loadModels() {
   try {
     const r = await api('/api/models');
     ccModelDetails = r.models || [];
-    ccModels = ccModelDetails.map((m) => m.id);
+    ccModelByKey = new Map(ccModelDetails.map((m) => [modelKey(m), m]));
+    ccModels = ccModelDetails.map(modelKey);
     renderModelList();
+    renderExposedList();
   } catch {
     ccModels = [];
     ccModelDetails = [];
+    ccModelByKey = new Map();
   }
 }
 
@@ -129,16 +136,23 @@ function renderModelList() {
   }
   el.innerHTML = ccModelDetails.map((m) => {
     const ctx = m.context_length ? `<span class="ctx">${(m.context_length / 1000).toLocaleString('tr-TR')}k ctx</span>` : '';
-    return `<span class="model-chip" title="${esc(m.name || '')}">${esc(m.id)}${ctx}</span>`;
+    return `<span class="model-chip" title="${esc(m.name || m.id)} — ${esc(m.accountName || '')}">${esc(m.id)}${ctx}${providerBadge(m.provider)}</span>`;
   }).join('');
 }
 
 // ---- API'de sunulan modeller (exposedModels) ----
+// Selection Set artık "provider::id" key'leri tutar (aynı id iki provider'da olabilir)
 let exposedSelection = new Set();
 let exposedSearch = '';       // aktif arama filtresi (küçük harf)
 function setExposedSearch(v) {
   exposedSearch = (v || '').trim().toLowerCase();
   renderExposedList();
+}
+function providerBadge(provider) {
+  if (provider === 'opencode-go') {
+    return ' <span class="prov-badge prov-og" title="OpenCode Go"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-rocket"/></svg> opencode</span>';
+  }
+  return ' <span class="prov-badge prov-cc" title="CommandCode"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-shuffle"/></svg> cmdcode</span>';
 }
 function renderExposedList() {
   const el = $('#exposed-list');
@@ -147,13 +161,17 @@ function renderExposedList() {
     $('#exposed-count').textContent = '';
     return;
   }
+  // Arama: id + provider + accountName içinde
   const filtered = exposedSearch
-    ? ccModelDetails.filter((m) => (m.id || '').toLowerCase().includes(exposedSearch))
+    ? ccModelDetails.filter((m) => {
+        const hay = `${m.id} ${m.provider || ''} ${m.accountName || ''}`.toLowerCase();
+        return hay.includes(exposedSearch);
+      })
     : ccModelDetails;
 
   // Sayaç: "seçili / toplam (filtre)"
   const totalShown = filtered.length;
-  const selShown = filtered.reduce((n, m) => n + (exposedSelection.has(m.id) ? 1 : 0), 0);
+  const selShown = filtered.reduce((n, m) => n + (exposedSelection.has(modelKey(m)) ? 1 : 0), 0);
   const totalAll = ccModelDetails.length;
   const selAll = exposedSelection.size;
   const countEl = $('#exposed-count');
@@ -171,21 +189,22 @@ function renderExposedList() {
   }
 
   el.innerHTML = filtered.map((m) => {
-    const on = exposedSelection.has(m.id);
+    const key = modelKey(m);
+    const on = exposedSelection.has(key);
     const ctx = m.context_length ? `<span class="ctx">${(m.context_length / 1000).toLocaleString('tr-TR')}k ctx</span>` : '';
-    return `<div class="model-row ${on ? 'row-on' : ''}" data-id="${esc(m.id)}" title="${esc(m.name || m.id)}">
-      <span class="model-id">${esc(m.id)}${ctx}</span>
-      <button type="button" class="toggle ${on ? 'toggle-on' : ''}" role="switch" aria-checked="${on}" data-id="${esc(m.id)}" title="${on ? 'Disable (API\'den gizle)' : 'Allow (API\'de göster)'}">
+    return `<div class="model-row ${on ? 'row-on' : ''}" data-key="${esc(key)}" title="${esc(m.name || m.id)} — ${esc(m.accountName || '')}">
+      <span class="model-id">${esc(m.id)}${ctx}${providerBadge(m.provider)}</span>
+      <button type="button" class="toggle ${on ? 'toggle-on' : ''}" role="switch" aria-checked="${on}" data-key="${esc(key)}" title="${on ? 'Disable (API\'den gizle)' : 'Allow (API\'de göster)'}">
         <span class="toggle-thumb"></span>
       </button>
     </div>`;
   }).join('');
   // Switch toggle: buton veya satıra tıklayınca aç/kapat
   el.querySelectorAll('.model-row').forEach((row) => {
-    const id = row.dataset.id;
+    const key = row.dataset.key;
     const toggle = () => {
-      if (exposedSelection.has(id)) exposedSelection.delete(id);
-      else exposedSelection.add(id);
+      if (exposedSelection.has(key)) exposedSelection.delete(key);
+      else exposedSelection.add(key);
       renderExposedList();
     };
     row.querySelector('.toggle').addEventListener('click', (e) => {
@@ -230,8 +249,13 @@ async function refresh() {
   renderLogs(status.logs);
 
   // exposed models (only reset selection if status.exposedModels changed)
+  // Server artık model id'leri (provider prefix olmadan) döndürür — biz client'ta
+  // model detaylarından provider'ı bulup key'i "provider::id" yapıyoruz.
   if (status.exposedModels) {
-    const next = new Set(status.exposedModels);
+    const next = new Set(status.exposedModels.map((id) => {
+      const m = ccModelDetails.find((x) => x.id === id);
+      return m ? modelKey(m) : id;
+    }));
     const same = next.size === exposedSelection.size && [...next].every((x) => exposedSelection.has(x));
     if (!same) {
       exposedSelection = next;
@@ -565,10 +589,25 @@ $('#refresh-models-btn').addEventListener('click', async () => {
   $('#refresh-models-btn').disabled = false;
 });
 
-// exposed models: kaydet / tümünü göster
+// ---- exposed-models POST yardımcısı: "provider::id" key'lerini düz id'ye çevir ----
+function exposedKeysToIds(keys) {
+  const out = [];
+  for (const key of keys) {
+    const m = ccModelByKey.get(key);
+    if (m) out.push(m.id);
+    else {
+      // eski formatta kaydedilmişse ya da model artık listede yoksa ham key'i gönder
+      const idx = key.indexOf('::');
+      out.push(idx >= 0 ? key.slice(idx + 1) : key);
+    }
+  }
+  return out;
+}
+
+// exposed models: kaydet
 $('#expose-save-btn').addEventListener('click', async () => {
   try {
-    const r = await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: [...exposedSelection] }) });
+    const r = await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: exposedKeysToIds(exposedSelection) }) });
     toast(r.exposedModels.length ? `API'de ${r.exposedModels.length} model sunuluyor` : 'Tüm modeller sunuluyor (filtre yok)');
     refresh();
   } catch (err) { toast(err.message, 'err'); }
@@ -577,12 +616,15 @@ $('#expose-save-btn').addEventListener('click', async () => {
 $('#expose-allow-all-btn').addEventListener('click', async () => {
   // Tüm (filtrede görünen) modelleri aç, server'a kaydet, listeyi tazele
   const targets = exposedSearch
-    ? ccModelDetails.filter((m) => (m.id || '').toLowerCase().includes(exposedSearch))
+    ? ccModelDetails.filter((m) => {
+        const hay = `${m.id} ${m.provider || ''} ${m.accountName || ''}`.toLowerCase();
+        return hay.includes(exposedSearch);
+      })
     : ccModelDetails;
-  for (const m of targets) exposedSelection.add(m.id);
+  for (const m of targets) exposedSelection.add(modelKey(m));
   renderExposedList();
   try {
-    const r = await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: [...exposedSelection] }) });
+    const r = await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: exposedKeysToIds(exposedSelection) }) });
     toast(`${targets.length} model açıldı, API'de ${r.exposedModels.length} model sunuluyor`);
     refresh();
   } catch (err) { toast(err.message, 'err'); }
@@ -591,12 +633,15 @@ $('#expose-allow-all-btn').addEventListener('click', async () => {
 $('#expose-disable-all-btn').addEventListener('click', async () => {
   // Tüm (filtrede görünen) modelleri kapat, server'a kaydet, listeyi tazele
   const targets = exposedSearch
-    ? ccModelDetails.filter((m) => (m.id || '').toLowerCase().includes(exposedSearch))
+    ? ccModelDetails.filter((m) => {
+        const hay = `${m.id} ${m.provider || ''} ${m.accountName || ''}`.toLowerCase();
+        return hay.includes(exposedSearch);
+      })
     : ccModelDetails;
-  for (const m of targets) exposedSelection.delete(m.id);
+  for (const m of targets) exposedSelection.delete(modelKey(m));
   renderExposedList();
   try {
-    const r = await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: [...exposedSelection] }) });
+    const r = await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: exposedKeysToIds(exposedSelection) }) });
     if (r.exposedModels.length === 0) {
       toast('Tüm modeller devre dışı (API\'de hiç model sunulmuyor)');
     } else {
