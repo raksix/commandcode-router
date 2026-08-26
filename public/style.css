@@ -294,11 +294,25 @@ tr:last-child td { border-bottom: none; }
 .model-chip {
   background: #1d2230; border: 1px solid var(--border); border-radius: 8px;
   padding: 6px 12px; font-family: var(--mono); font-size: 12.5px; color: var(--text);
+  display: inline-flex; align-items: center; gap: 8px;
 }
 .model-chip .ctx { color: var(--muted); font-size: 11px; margin-left: 6px; }
 #exposed-list .model-chip { cursor: pointer; user-select: none; }
 #exposed-list .model-chip:hover { border-color: var(--accent); }
 .model-chip.chip-on { background: #163425; border-color: var(--green); color: var(--green); }
+
+/* ---- provider badge (model-chip ve model-row içinde) ---- */
+.prov-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 999px;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 10.5px; font-weight: 600; line-height: 1;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
+}
+.prov-badge.prov-cc { background: #1d2a4a; color: #7fb0ff; border-color: #2e4470; }
+.prov-badge.prov-og { background: #2a1f3a; color: #c79bff; border-color: #4a3870; }
+.prov-badge svg { width: 11px; height: 11px; }
 
 /* ---- models toolbar: arama + toplu işlemler ---- */
 .models-toolbar {
