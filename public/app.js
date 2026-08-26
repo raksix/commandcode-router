@@ -135,22 +135,67 @@ function renderModelList() {
 
 // ---- API'de sunulan modeller (exposedModels) ----
 let exposedSelection = new Set();
+let exposedSearch = '';       // aktif arama filtresi (küçük harf)
+function setExposedSearch(v) {
+  exposedSearch = (v || '').trim().toLowerCase();
+  renderExposedList();
+}
 function renderExposedList() {
   const el = $('#exposed-list');
   if (!ccModelDetails.length) {
     el.innerHTML = '<span class="hint">Önce model listesi yüklensin (yukarıdaki Yenile).</span>';
+    $('#exposed-count').textContent = '';
     return;
   }
-  el.innerHTML = ccModelDetails.map((m) => {
+  const filtered = exposedSearch
+    ? ccModelDetails.filter((m) => (m.id || '').toLowerCase().includes(exposedSearch))
+    : ccModelDetails;
+
+  // Sayaç: "seçili / toplam (filtre)"
+  const totalShown = filtered.length;
+  const selShown = filtered.reduce((n, m) => n + (exposedSelection.has(m.id) ? 1 : 0), 0);
+  const totalAll = ccModelDetails.length;
+  const selAll = exposedSelection.size;
+  const countEl = $('#exposed-count');
+  if (countEl) {
+    if (exposedSearch) {
+      countEl.textContent = `${selShown}/${totalShown} gösterilen · ${selAll}/${totalAll} toplam`;
+    } else {
+      countEl.textContent = `${selAll}/${totalAll} model açık`;
+    }
+  }
+
+  if (!totalShown) {
+    el.innerHTML = `<span class="hint">"${esc(exposedSearch)}" ile eşleşen model yok.</span>`;
+    return;
+  }
+
+  el.innerHTML = filtered.map((m) => {
     const on = exposedSelection.has(m.id);
-    return `<span class="model-chip ${on ? 'chip-on' : ''}" data-id="${esc(m.id)}" title="Tıkla: ${on ? 'kaldır' : 'seç'}">${esc(m.id)}${on ? ' <svg class="ic ic-xs"><use href="/assets/sprite.svg#i-circle-check"/></svg>' : ''}</span>`;
+    const ctx = m.context_length ? `<span class="ctx">${(m.context_length / 1000).toLocaleString('tr-TR')}k ctx</span>` : '';
+    return `<div class="model-row ${on ? 'row-on' : ''}" data-id="${esc(m.id)}" title="${esc(m.name || m.id)}">
+      <span class="model-id">${esc(m.id)}${ctx}</span>
+      <button type="button" class="toggle ${on ? 'toggle-on' : ''}" role="switch" aria-checked="${on}" data-id="${esc(m.id)}" title="${on ? 'Disable (API\'den gizle)' : 'Allow (API\'de göster)'}">
+        <span class="toggle-thumb"></span>
+      </button>
+    </div>`;
   }).join('');
-  el.querySelectorAll('.model-chip').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      const id = chip.dataset.id;
+  // Switch toggle: buton veya satıra tıklayınca aç/kapat
+  el.querySelectorAll('.model-row').forEach((row) => {
+    const id = row.dataset.id;
+    const toggle = () => {
       if (exposedSelection.has(id)) exposedSelection.delete(id);
       else exposedSelection.add(id);
       renderExposedList();
+    };
+    row.querySelector('.toggle').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggle();
+    });
+    // Satırın geri kalanına tıklayınca da toggle (kolay kullanım)
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.toggle')) return;
+      toggle();
     });
   });
 }
@@ -224,8 +269,12 @@ function renderMasterKeys(keys) {
 function renderAccounts(accounts) {
   const tbody = $('#accounts-body');
   tbody.innerHTML = '';
-  for (const a of accounts) {
+  // hesap sayısı: ilk hesap "Birincil" rozeti alır (round-robin'in başlangıç noktası)
+  for (let i = 0; i < accounts.length; i++) {
+    const a = accounts[i];
     const tr = document.createElement('tr');
+    tr.dataset.id = a.id;
+    tr.draggable = true;
 
     const statusBadge = a.banned
       ? '<span class="badge badge-ban"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-ban"/></svg> Banlı</span>'
@@ -233,8 +282,21 @@ function renderAccounts(accounts) {
         ? '<span class="badge badge-ok">Aktif</span>'
         : '<span class="badge badge-off">Pasif</span>';
 
+    const primaryBadge = (i === 0 && accounts.length > 1)
+      ? '<span class="badge badge-primary" title="Round-robin bu hesaptan başlar"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-rocket"/></svg> Birincil</span>'
+      : '';
+
+    const orderBadge = `<span class="order-badge">#${i + 1}</span>`;
+
     tr.innerHTML = `
-      <td><span class="acc-name">${esc(a.name)}</span></td>
+      <td>
+        <div class="acc-name-row">
+          <span class="drag-handle" title="Sürükle-bırak ile taşı"><svg class="ic ic-sm"><use href="/assets/sprite.svg#i-shuffle"/></svg></span>
+          <span class="acc-name">${esc(a.name)}</span>
+          ${primaryBadge}
+          ${orderBadge}
+        </div>
+      </td>
       <td class="key-cell">
         <span class="key-val">${maskKey(a.apiKeyMasked)}</span>
         <button class="eye-btn" title="Tam keyi gör"><svg class="ic ic-sm"><use href="/assets/sprite.svg#i-eye"/></svg></button>
@@ -246,6 +308,10 @@ function renderAccounts(accounts) {
       <td>${fmtTime(a.lastUsedAt)}</td>
       <td>
         <div class="action-row">
+          <div class="reorder-group" role="group" aria-label="Sıra">
+            <button class="btn btn-icon move-up" title="Yukarı taşı" ${i === 0 ? 'disabled' : ''}><svg class="ic ic-sm"><use href="/assets/sprite.svg#i-arrow-up"/></svg></button>
+            <button class="btn btn-icon move-down" title="Aşağı taşı" ${i === accounts.length - 1 ? 'disabled' : ''}><svg class="ic ic-sm"><use href="/assets/sprite.svg#i-arrow-down"/></svg></button>
+          </div>
           <button class="btn btn-small test-btn">Test</button>
           ${a.banned ? '<button class="btn btn-small unban-btn">Ban kaldır</button>' : `<button class="btn btn-small toggle-btn">${a.isActive ? 'Pasifleştir' : 'Aktifleştir'}</button>`}
           <button class="btn btn-small btn-danger del-btn">Sil</button>
@@ -297,8 +363,93 @@ function renderAccounts(accounts) {
       refresh();
     });
 
+    // ▲/▼ sıra butonları
+    const upBtn = tr.querySelector('.move-up');
+    const downBtn = tr.querySelector('.move-down');
+    if (upBtn && !upBtn.disabled) {
+      upBtn.addEventListener('click', async () => {
+        await moveAccount(a.id, i - 1);
+      });
+    }
+    if (downBtn && !downBtn.disabled) {
+      downBtn.addEventListener('click', async () => {
+        await moveAccount(a.id, i + 1);
+      });
+    }
+
+    // HTML5 drag-drop
+    attachRowDragHandlers(tr, a.id, i);
+
     tbody.appendChild(tr);
   }
+}
+
+// Tek hesabı listede yeni index'e taşı ve backend'e yeni sırayı gönder.
+async function moveAccount(id, toIndex) {
+  const tbody = $('#accounts-body');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const currentIds = rows.map((r) => r.dataset.id);
+  const fromIndex = currentIds.indexOf(id);
+  if (fromIndex === -1 || toIndex < 0 || toIndex >= currentIds.length) return;
+  // anında optimistic UI: DOM'dan taşı
+  currentIds.splice(fromIndex, 1);
+  currentIds.splice(toIndex, 0, id);
+  reorderDom(currentIds);
+  // backend'e bildir
+  try {
+    await api('/api/accounts/reorder', { method: 'POST', body: JSON.stringify({ order: currentIds }) });
+    toast('Sıra güncellendi');
+    refresh(); // round-robin index + Birincil rozet hesabı yeniden çizilsin
+  } catch (err) {
+    toast('Sıra kaydedilemedi: ' + err.message, 'err');
+    refresh(); // hatayı geri al
+  }
+}
+
+// DOM'u verilen id sırasına göre yeniden kur (animasyonsuz; tarayıcı native geçiş yapar)
+function reorderDom(idOrder) {
+  const tbody = $('#accounts-body');
+  const rows = new Map(Array.from(tbody.querySelectorAll('tr')).map((r) => [r.dataset.id, r]));
+  tbody.innerHTML = '';
+  for (const id of idOrder) {
+    if (rows.has(id)) tbody.appendChild(rows.get(id));
+  }
+}
+
+// HTML5 drag-drop — satırı tutup başka satırın üstüne bırakınca sıra değişir.
+let dragSourceId = null;
+function attachRowDragHandlers(tr, id, index) {
+  tr.addEventListener('dragstart', (e) => {
+    dragSourceId = id;
+    tr.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  });
+  tr.addEventListener('dragend', () => {
+    dragSourceId = null;
+    tr.classList.remove('dragging');
+    $$('#accounts-body tr').forEach((r) => r.classList.remove('drag-over'));
+  });
+  tr.addEventListener('dragover', (e) => {
+    if (!dragSourceId || dragSourceId === id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    $$('#accounts-body tr').forEach((r) => r.classList.remove('drag-over'));
+    tr.classList.add('drag-over');
+  });
+  tr.addEventListener('dragleave', () => {
+    tr.classList.remove('drag-over');
+  });
+  tr.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    tr.classList.remove('drag-over');
+    if (!dragSourceId || dragSourceId === id) return;
+    // hedefin index'ini bul
+    const tbody = $('#accounts-body');
+    const ids = Array.from(tbody.querySelectorAll('tr')).map((r) => r.dataset.id);
+    const targetIdx = ids.indexOf(id);
+    await moveAccount(dragSourceId, targetIdx);
+  });
 }
 
 // ---- istatistik (günlük) ----
@@ -423,14 +574,41 @@ $('#expose-save-btn').addEventListener('click', async () => {
   } catch (err) { toast(err.message, 'err'); }
 });
 
-$('#expose-all-btn').addEventListener('click', async () => {
-  exposedSelection = new Set(ccModels);
+$('#expose-allow-all-btn').addEventListener('click', async () => {
+  // Tüm (filtrede görünen) modelleri aç, server'a kaydet, listeyi tazele
+  const targets = exposedSearch
+    ? ccModelDetails.filter((m) => (m.id || '').toLowerCase().includes(exposedSearch))
+    : ccModelDetails;
+  for (const m of targets) exposedSelection.add(m.id);
   renderExposedList();
   try {
-    await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: [...exposedSelection] }) });
-    toast('Tüm modeller API\'de sunuluyor');
+    const r = await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: [...exposedSelection] }) });
+    toast(`${targets.length} model açıldı, API'de ${r.exposedModels.length} model sunuluyor`);
     refresh();
   } catch (err) { toast(err.message, 'err'); }
+});
+
+$('#expose-disable-all-btn').addEventListener('click', async () => {
+  // Tüm (filtrede görünen) modelleri kapat, server'a kaydet, listeyi tazele
+  const targets = exposedSearch
+    ? ccModelDetails.filter((m) => (m.id || '').toLowerCase().includes(exposedSearch))
+    : ccModelDetails;
+  for (const m of targets) exposedSelection.delete(m.id);
+  renderExposedList();
+  try {
+    const r = await api('/api/exposed-models', { method: 'POST', body: JSON.stringify({ models: [...exposedSelection] }) });
+    if (r.exposedModels.length === 0) {
+      toast('Tüm modeller devre dışı (API\'de hiç model sunulmuyor)');
+    } else {
+      toast(`${targets.length} model kapatıldı, API'de ${r.exposedModels.length} model kaldı`);
+    }
+    refresh();
+  } catch (err) { toast(err.message, 'err'); }
+});
+
+// Search input -> canlı filtre
+$('#exposed-search').addEventListener('input', (e) => {
+  setExposedSearch(e.target.value);
 });
 
 // ---- CommandCode auth (tarayıcıda giriş -> hesap otomatik eklenir) ----

@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>CommandCode Router</title>
-  <link rel="stylesheet" href="/assets/style.css?v=8" />
+  <link rel="stylesheet" href="/assets/style.css?v=9" />
 </head>
 <body>
   <!-- Loading screen (sayfa açılışında görünür, dashboard hazır olunca kaybolur) -->
@@ -128,6 +128,10 @@
           Key yok mu? <button id="ccauth-inline-btn" class="btn btn-small btn-primary">CommandCode yap</button> — tarayıcıda CommandCode'a giriş yaparsın, key otomatik eklenir.
         </div>
         <div id="ccauth-add-status" class="hint" style="color:#e0b341"></div>
+        <div class="acc-orders-hint">
+          <svg class="ic ic-xs"><use href="/assets/sprite.svg#i-shuffle"/></svg>
+          Round-robin sırasını değiştirmek için satırın <strong>☰</strong> tutamacını sürükle-bırak, ya da <strong>▲▼</strong> butonlarını kullan. İlk sıra round-robin başlangıç noktasıdır.
+        </div>
         <table class="accounts">
           <thead>
             <tr>
@@ -143,14 +147,24 @@
         <h2><svg class="ic"><use href="/assets/sprite.svg#i-bot"/></svg> Modeller
           <span class="acc-actions">
             <button id="refresh-models-btn" class="btn btn-small"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-refresh-cw"/></svg> Yenile</button>
-            <button id="expose-all-btn" class="btn btn-small">Tümünü Göster</button>
             <button id="expose-save-btn" class="btn btn-small btn-primary">Kaydet</button>
           </span>
         </h2>
         <p class="hint">CommandCode API'den çekilen güncel model listesi. "API'de Sunulan Modeller" bölümünden <code>/v1/models</code>'te gösterilecekleri seç.</p>
         <div class="model-list" id="model-list"></div>
-        <h3 style="margin-top:20px;font-size:14px"><svg class="ic"><use href="/assets/sprite.svg#i-globe"/></svg> API'de Sunulan Modeller</h3>
-        <p class="hint">Claude Code'a (<code>/v1/models</code>) gösterilecek model adları. Aşağıdan seç — seçilenler API'de listelenir, isteklerde kullanılabilir. "Tümünü Göster" = filtresiz.</p>
+        <div class="models-toolbar">
+          <h3 style="font-size:14px;margin:0"><svg class="ic"><use href="/assets/sprite.svg#i-globe"/></svg> API'de Sunulan Modeller</h3>
+          <div class="models-search">
+            <svg class="ic ic-sm models-search-icon"><use href="/assets/sprite.svg#i-search"/></svg>
+            <input id="exposed-search" type="text" placeholder="Model ara…" autocomplete="off" />
+          </div>
+          <div class="models-bulk">
+            <span class="models-count" id="exposed-count"></span>
+            <button id="expose-allow-all-btn" class="btn btn-small" title="Tüm modelleri API'de göster"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-circle-check"/></svg> Allow All</button>
+            <button id="expose-disable-all-btn" class="btn btn-small btn-danger-ghost" title="Tüm modelleri API'den gizle"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-x"/></svg> Disable All</button>
+          </div>
+        </div>
+        <p class="hint">Claude Code'a (<code>/v1/models</code>) gösterilecek model adları. Switch'i açık olan modeller API'de listelenir ve isteklerde kullanılabilir. Arama kutusu ile listeyi filtreleyebilirsin.</p>
         <div class="model-list" id="exposed-list"></div>
       </section>
 
@@ -251,6 +265,6 @@ curl -X POST http://localhost:3025/v1/messages \
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/assets/app.js?v=8"></script>
+  <script src="/assets/app.js?v=9"></script>
 </body>
 </html>

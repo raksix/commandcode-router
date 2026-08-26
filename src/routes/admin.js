@@ -157,6 +157,41 @@ adminRouter.delete('/accounts/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// Sıra düzenleme: body { order: [id1, id2, ...] }.
+// Round-robin zaten data.config.accounts sırasına göre çalışıyor — yeni sıra anında etki eder.
+// roundRobinIndex sıfırlanır ki pickAccount() yeni "başlangıç" hesabından başlasın.
+adminRouter.post('/accounts/reorder', (req, res) => {
+  const { order } = req.body ?? {};
+  if (!Array.isArray(order) || order.some((x) => typeof x !== 'string')) {
+    res.status(400).json({ error: 'order (string[] ) gerekli' });
+    return;
+  }
+  const current = data.config.accounts || [];
+  // unique check
+  if (new Set(order).size !== order.length) {
+    res.status(400).json({ error: 'order tekrar eden id içeremez' });
+    return;
+  }
+  // tam set kontrolü: order içinde OLMAYAN id kalmamalı (yeni hesap eklenmediği sürece)
+  const known = new Set(current.map((a) => a.id));
+  for (const id of order) {
+    if (!known.has(id)) {
+      res.status(400).json({ error: `bilinmeyen hesap: ${id}` });
+      return;
+    }
+  }
+  if (order.length !== current.length) {
+    res.status(400).json({ error: `order uzunluğu (${order.length}) mevcut hesap sayısıyla (${current.length}) eşleşmeli` });
+    return;
+  }
+  const byId = new Map(current.map((a) => [a.id, a]));
+  data.config.accounts = order.map((id) => byId.get(id));
+  // pickAccount() artık yeni listeden seçecek; ilk seferin 0. indeksten başlaması için:
+  data.state.roundRobinIndex = 0;
+  markDirty();
+  res.json({ ok: true, accounts: data.config.accounts.map((a) => ({ id: a.id, name: a.name })) });
+});
+
 // reveal full key (admin session only)
 adminRouter.get('/accounts/:id/reveal', (req, res) => {
   const acc = findAccount(req.params.id);
