@@ -2,7 +2,6 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import { data, getAccountState, markDirty } from '../store.js';
 import { loginAdmin, logoutAdmin, requireAdmin } from '../auth.js';
-import { pickAccount } from '../pool.js';
 import {
   generateState, createAuthSession, hashState, getSession, consumeApiKey,
   cleanupExpired, CALLBACK_PORT, CALLBACK_PATH, STUDIO_AUTH_URL
@@ -20,29 +19,57 @@ export function accountBaseUrl(account) {
   return UPSTREAM_BASES[account?.provider] || UPSTREAM_BASES.commandcode;
 }
 
-/** Fetch provider model list (reuses the 5-min proxy cache; fetches fresh if stale). */
+/** Tüm aktif/banlanmamış hesapların upstream'inden model listesi çek, provider ile birlikte döndür.
+ *  Aynı model iki provider'da varsa ikisi de ayrı satır olarak döner (id+provider unique anahtar).
+ *  Sonuç: [{ id, name, context_length, provider, accountName }]
+ *  Cache tek hesap üzerinden değil, TÜM hesapların birleşik sonucu üzerinden tutulur. */
 async function fetchModels() {
   const cache = data.state.modelsCache;
   const now = Date.now();
   const ttl = (data.config.modelsCacheTtlSec ?? 300) * 1000;
   if (cache.data && cache.at && now - cache.at < ttl) {
-    try { return JSON.parse(cache.data).data ?? []; } catch {}
+    try { return JSON.parse(cache.data); } catch {}
   }
-  const account = pickAccount();
-  if (!account) return [];
-  try {
-    const up = await fetch(accountBaseUrl(account) + '/models', {
-      headers: { authorization: `Bearer ${account.apiKey}` }
-    });
-    if (!up.ok) return [];
-    const text = await up.text();
-    cache.data = text;
-    cache.at = now;
-    markDirty();
-    return JSON.parse(text).data ?? [];
-  } catch {
-    return [];
+  const accounts = (data.config.accounts || []).filter(
+    (a) => a.isActive && !getAccountState(a.id).banned
+  );
+  const results = await Promise.all(accounts.map(async (acc) => {
+    const base = accountBaseUrl(acc).replace(/\/+$/, '');
+    const modelsPath = acc.provider === 'opencode-go' ? '/models' : '/v1/models';
+    try {
+      const up = await fetch(base + modelsPath, {
+        headers: { authorization: `Bearer ${acc.apiKey}` }
+      });
+      if (!up.ok) return [];
+      const text = await up.text();
+      const j = JSON.parse(text);
+      const list = j.data ?? j.models ?? [];
+      return list.map((m) => ({
+        id: m.id,
+        name: m.name || m.id,
+        context_length: m.context_length ?? null,
+        provider: acc.provider || 'commandcode',
+        accountName: acc.name
+      }));
+    } catch {
+      return [];
+    }
+  }));
+  // aynı (id, provider) tekrarını at (birden fazla hesap aynı provider'dan çekmiş olabilir)
+  const seen = new Set();
+  const merged = [];
+  for (const m of results.flat()) {
+    const key = `${m.provider}::${m.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(m);
   }
+  // id alfabetik sırayla (UI kararlı)
+  merged.sort((a, b) => a.id.localeCompare(b.id));
+  cache.data = JSON.stringify(merged);
+  cache.at = now;
+  markDirty();
+  return merged;
 }
 
 // ---- auth endpoints ----
