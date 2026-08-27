@@ -1,18 +1,6 @@
 import { data, getAccountState, markDirty } from './store.js';
-
-/** Provider -> upstream base URL (pool.js ve proxy.js ortak kullanır). */
-export const UPSTREAM_BASES = {
-  commandcode: 'https://api.commandcode.ai/provider',
-  'opencode-go': 'https://opencode.ai/zen/go/v1',
-  // OpenCode Zen — aynı API key hem /zen/go/v1 hem /zen/v1'e erişir (free + paid modeller).
-  // OpenAI-uyumlu: /v1/models, /v1/chat/completions, /v1/messages.
-  'opencode-zen': 'https://opencode.ai/zen/v1'
-};
-
-/** Hesabın upstream base URL'i (provider alanına göre; eski hesaplarda default commandcode). */
-export function accountBaseUrl(account) {
-  return UPSTREAM_BASES[account?.provider] || UPSTREAM_BASES.commandcode;
-}
+import { UPSTREAM_BASES, accountBaseUrl } from './models.js';
+import { outboundDispatcher, getOutboundProxy, reportOutcome } from './proxy-pool.js';
 
 /**
  * Round-robin: aktif ve banlanmamış hesaplar arasında sırayla seç.
@@ -207,15 +195,21 @@ export async function routeRequest({ url, method, headers, body, signal, route, 
       } catch { /* body JSON değilse dokunma */ }
     }
 
+    // Outbound trafik proxy havuzundan geçer (havuz boşsa düz fetch).
+    // Her hesap denemesinde YENİ proxy seçilir (proxy + hesap bağımsız döner).
+    const proxyInfo = getOutboundProxy();
+    const dispatcher = proxyInfo ? proxyInfo.agent : undefined;
     let res;
     try {
-      res = await fetch(finalUrl, { method, headers: upHeaders, body: bodyForUpstream, signal });
+      res = await fetch(finalUrl, { method, headers: upHeaders, body: bodyForUpstream, signal, dispatcher });
     } catch (err) {
       if (signal?.aborted) throw err; // client left — don't count against account
+      if (proxyInfo) reportOutcome(proxyInfo.rec.id, false, err.message);
       record(account, { ok: false, error: err.message, route });
       lastResponse = { status: 502, headers: {}, bodyBuffer: null, errorBody: { type: 'error', error: { type: 'api_error', message: `upstream hatası: ${err.message}` } } };
       continue; // network error -> try next account
     }
+    if (proxyInfo) reportOutcome(proxyInfo.rec.id, res.status >= 200 && res.status < 300, `HTTP ${res.status}`);
 
     const is2xx = res.status >= 200 && res.status < 300;
     const retryable = res.status === 401 || res.status === 429 || res.status >= 500;

@@ -14,6 +14,7 @@
 
 import http from 'node:http';
 import crypto from 'node:crypto';
+import { ProxyAgent } from 'undici';
 import { data, markDirty } from './store.js';
 
 const DISABLE_HOURS = 12;
@@ -440,4 +441,34 @@ export function removeProxy(id) {
   state.order = state.order.filter(x => x !== id);
   markDirty();
   return true;
+}
+
+/* -------------------------- outbound proxy binding -------------------------- */
+
+// Aktif proxy havuzundan bir proxy seçip undici dispatcher'ı üretir.
+// Proxy havuzu boşsa/hep pasifse null döner -> fetch düz gider (proxy yok).
+// http ve socks5 desteklenir (Node 22 built-in undici ProxyAgent).
+// NOT: upstream API istekleri (routeRequest) bunu kullanır; böylece panelden
+// ya da Claude Code'dan gelen trafik havuzdaki proxy'den geçer.
+let _proxyAgentCache = null; // { url, agent }
+let _proxyAgentForUrl = null;
+
+export function getOutboundProxy() {
+  const rec = pickNext();
+  if (!rec) return null;
+  const proto = (rec.protocol || 'http').toLowerCase();
+  const auth = rec.username ? `${encodeURIComponent(rec.username)}:${encodeURIComponent(rec.password)}@` : '';
+  const proxyUrl = `${proto}://${auth}${rec.host}:${rec.port}`;
+  // aynı proxy için agent'ı yeniden üretme (connection reuse)
+  if (_proxyAgentForUrl !== proxyUrl) {
+    _proxyAgentCache = new ProxyAgent(proxyUrl);
+    _proxyAgentForUrl = proxyUrl;
+  }
+  return { rec, agent: _proxyAgentCache, url: proxyUrl };
+}
+
+// fetch için dispatcher seçeneğini döndürür (proxy yoksa undefined -> düz fetch)
+export function outboundDispatcher() {
+  const p = getOutboundProxy();
+  return p ? p.agent : undefined;
 }
