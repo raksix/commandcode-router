@@ -95,11 +95,13 @@ proxyRouter.get('/v1/models', async (req, res) => {
 });
 
 // ---- any other /v1/* request -> passthrough (POST /v1/messages, chat/completions, etc.) ----
-proxyRouter.use('/v1', async (req, res) => {
+// Bu mantık hem public /v1 (master key ile) hem de admin-only /api/playground
+// (session cookie ile, key tarayıcıya sızmadan) tarafından kullanılır.
+// `started` parametresi dışarıdan verilebilir (playground wrapper'ı ms hesabı için).
+export async function handleV1Request(req, res, started = Date.now()) {
   // query string'i ayır — Claude Code /v1/messages?beta=true şeklinde istek atıyor
   const [pathname, query = ''] = req.originalUrl.split('?');
   const route = pathname;
-  const started = Date.now();
 
   // /alpha/generate dalı (OmniRoute yöntemi): Go planı dahil HER planla çalışır.
   // config'te useAlpha:false yapılırsa eski /provider yolu kullanılır.
@@ -191,7 +193,10 @@ proxyRouter.use('/v1', async (req, res) => {
       });
     }
   }
-});
+}
+
+proxyRouter.use('/v1', requireMasterKey);
+proxyRouter.use('/v1', handleV1Request);
 
 // OpenAI SSE stream -> Anthropic SSE stream pipe
 function pipeConvertedStream({ upstreamRes, res, controller, log }) {

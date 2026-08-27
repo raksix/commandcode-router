@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import { data, getAccountState, markDirty } from '../store.js';
 import { loginAdmin, logoutAdmin, requireAdmin } from '../auth.js';
+import { handleV1Request } from './proxy.js';
 import {
   generateState, createAuthSession, hashState, getSession, consumeApiKey,
   cleanupExpired, CALLBACK_PORT, CALLBACK_PATH, STUDIO_AUTH_URL
@@ -115,6 +116,21 @@ adminRouter.post('/logout', (req, res) => {
 
 // ---- everything below requires a valid admin session ----
 adminRouter.use(requireAdmin);
+
+// ---- Playground proxy (admin-only, master key NOT exposed to browser) ----
+// Panel içinden chat testi yapmak için: /api/playground/* isteklerini gerçek
+// /v1/* akışına (round-robin + alpha yolu + token log) yönlendirir. URL'yi
+// /v1/...'e rewrite edip aynı handler'ı kullanıyoruz.
+const playgroundRouter = Router();
+playgroundRouter.use((req, res, next) => {
+  // /api/playground/v1/messages -> /v1/messages (handler path'e bakar).
+  // Express mount stripping sonrası req.url zaten "/v1/..." (prefix'ler atıldı).
+  // req.originalUrl'ı da ona eşitle ki handler doğru route'ı loglasın (çift /v1 olmasın).
+  if (!req.url.startsWith('/v1')) req.url = req.url.replace(/^\/playground/, '') || '/v1/messages';
+  req.originalUrl = req.url;
+  next();
+}, handleV1Request);
+adminRouter.use('/playground', playgroundRouter);
 
 // ---- status: combined view ----
 adminRouter.get('/status', (req, res) => {

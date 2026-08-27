@@ -961,4 +961,166 @@ function startProxyAutoRefresh() {
   }, 8000);
 }
 const _origShowDashboard = showDashboard;
-showDashboard = async function() { await _origShowDashboard(); startProxyAutoRefresh(); };
+showDashboard = async function() { await _origShowDashboard(); startProxyAutoRefresh(); initPlayground(); };
+
+// ---- Playground ----
+// Panel içinden API'leri test eder. İstek /api/playground/v1/* üzerinden gerçek
+// havuzdan (round-robin + alpha yolu) geçer; master key tarayıcıya sızmaz.
+let pgHistory = []; // [{ role, content }]
+let pgBusy = false;
+
+function initPlayground() {
+  // model listesini datalist'e doldur (loadModels ccModelDetails'i doldurur)
+  const dl = $('#pg-model-list');
+  if (dl && ccModelDetails.length) {
+    dl.innerHTML = ccModelDetails.map((m) => `<option value="${esc(m.id)}">`).join('');
+  }
+  // event'leri bir kez bağla
+  if (window.__pgBound) return;
+  window.__pgBound = true;
+
+  $('#pg-send').addEventListener('click', () => pgSubmit());
+  $('#pg-clear').addEventListener('click', () => {
+    pgHistory = [];
+    $('#pg-chat').innerHTML = '';
+    setPgStatus('Temizlendi.');
+  });
+  $('#pg-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      pgSubmit();
+    }
+  });
+}
+
+function pgRender() {
+  const chat = $('#pg-chat');
+  chat.innerHTML = pgHistory.map((m) => {
+    const isUser = m.role === 'user';
+    const cls = isUser ? 'user' : 'assistant';
+    const meta = isUser ? 'sen' : (m.model ? esc(m.model) : 'assistant');
+    const streaming = m.streaming ? ' streaming' : '';
+    const content = esc(m.content || (m.streaming ? '…' : ''));
+    return `<div class="pg-msg ${cls}"><div class="pg-bubble${streaming}">${content}</div><div class="pg-meta">${meta}</div></div>`;
+  }).join('');
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function setPgStatus(html) { $('#pg-status').innerHTML = html; }
+
+async function pgSubmit() {
+  if (pgBusy) return;
+  const text = $('#pg-input').value.trim();
+  if (!text) { toast('Mesaj boş', 'err'); return; }
+  const model = $('#pg-model').value.trim();
+  if (!model) { toast('Model seç', 'err'); return; }
+
+  const format = $('#pg-format').value;
+  const maxTokens = parseInt($('#pg-maxtok').value, 10) || 512;
+  const stream = $('#pg-stream').checked;
+
+  pgHistory.push({ role: 'user', content: text });
+  pgHistory.push({ role: 'assistant', content: '', model, streaming: true });
+  pgRender();
+  $('#pg-input').value = '';
+  setPgStatus('İstek gönderiliyor…');
+  pgBusy = true;
+
+  const started = Date.now();
+  try {
+    // Anthropic: son kullanıcı mesajı + önceki tamamlanmış assistant mesajları
+    const messages = pgHistory
+      .filter((m) => !m.streaming)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    const payload = format === 'anthropic'
+      ? { model, max_tokens: maxTokens, stream, messages }
+      : {
+          model,
+          stream,
+          max_tokens: maxTokens,
+          messages
+        };
+
+    const endpoint = format === 'anthropic' ? '/api/playground/v1/messages' : '/api/playground/v1/chat/completions';
+    const headers = { 'Content-Type': 'application/json' };
+    if (format === 'anthropic') headers['anthropic-version'] = '2023-06-01';
+
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+      cache: 'no-store'
+    });
+
+    const ms = Date.now() - started;
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      pgHistory[pgHistory.length - 1] = { role: 'assistant', content: `Hata ${resp.status}:\n${errText.slice(0, 600)}`, model };
+      pgRender();
+      setPgStatus(`<span class="err">HTTP ${resp.status}</span> · ${ms}ms · ${esc(model)}`);
+      return;
+    }
+
+    const lastMsg = () => pgHistory[pgHistory.length - 1];
+
+    if (stream && resp.body) {
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let acc = '';
+      let gotDelta = false;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+          const t = line.trim();
+          if (!t || !t.startsWith('data:')) continue;
+          const data = t.slice(5).trim();
+          if (data === '[DONE]') continue;
+          let j; try { j = JSON.parse(data); } catch { continue; }
+          const piece = format === 'anthropic'
+            ? (j.delta?.text || (j.delta?.type === 'text_delta' ? j.delta.text : ''))
+            : (j.choices?.[0]?.delta?.content || '');
+          if (piece) {
+            gotDelta = true;
+            acc += piece;
+            lastMsg().content = acc;
+            lastMsg().streaming = true;
+            pgRender();
+          }
+        }
+      }
+      lastMsg().streaming = false;
+      lastMsg().content = acc || lastMsg().content;
+      pgRender();
+      const inT = lastMsg().inputTokens || lastMsg().usage?.input_tokens || '';
+      setPgStatus(`<span class="ok">200 OK</span> · ${ms}ms · ${gotDelta ? 'stream' : 'boş stream'} · ${esc(model)}`);
+    } else {
+      const textBody = await resp.text();
+      let out = textBody;
+      try {
+        const j = JSON.parse(textBody);
+        if (format === 'anthropic') {
+          out = (j.content || []).map((c) => c.text || (c.input ? JSON.stringify(c.input) : '')).join('') ||
+                (j.text || JSON.stringify(j, null, 2));
+        } else {
+          out = j.choices?.[0]?.message?.content || JSON.stringify(j, null, 2);
+        }
+      } catch {}
+      lastMsg().content = out;
+      lastMsg().streaming = false;
+      pgRender();
+      setPgStatus(`<span class="ok">200 OK</span> · ${ms}ms · ${esc(model)}`);
+    }
+  } catch (err) {
+    pgHistory[pgHistory.length - 1] = { role: 'assistant', content: `İstek hatası: ${err.message}`, model };
+    pgRender();
+    setPgStatus(`<span class="err">hata</span> · ${esc(err.message)}`);
+  } finally {
+    pgBusy = false;
+  }
+}

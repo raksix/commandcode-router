@@ -81,6 +81,9 @@
         <a href="#models" class="side-link" data-section="models">
           <svg class="ic side-icon"><use href="/assets/sprite.svg#i-bot"/></svg> Modeller
         </a>
+        <a href="#playground" class="side-link" data-section="playground">
+          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-flask-conical"/></svg> Playground
+        </a>
         <a href="#proxies" class="side-link" data-section="proxies">
           <svg class="ic side-icon"><use href="/sprite.svg#i-globe"/></svg> Proxy Havuzu
         </a>
@@ -200,6 +203,50 @@
         </div>
         <p class="hint">Claude Code'a (<code>/v1/models</code>) gösterilecek model adları. Switch'i açık olan modeller API'de listelenir ve isteklerde kullanılabilir. Arama kutusu ile listeyi filtreleyebilirsin.</p>
         <div class="model-list" id="exposed-list"></div>
+      </section>
+
+      <!-- Playground -->
+      <section class="card section" id="section-playground" data-section-panel="playground" hidden>
+        <h2><svg class="ic"><use href="/assets/sprite.svg#i-flask-conical"/></svg> Playground
+          <span class="acc-actions">
+            <button id="pg-send" class="btn btn-small btn-primary" style="margin-left:8px"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-arrow-up"/></svg> Gönder</button>
+            <button id="pg-clear" class="btn btn-small"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-trash-2"/></svg> Temizle</button>
+          </span>
+        </h2>
+        <p class="hint">Panel içinden API'leri test et — master key tarayıcıya sızmaz, istek gerçek havuzdan (round-robin + alpha yolu) geçer. Loglar sekmesinde görünür.</p>
+
+        <div class="pg-toolbar">
+          <div class="pg-field">
+            <label class="form-label" for="pg-format">Format</label>
+            <select id="pg-format">
+              <option value="anthropic">Anthropic (/v1/messages)</option>
+              <option value="openai">OpenAI (/v1/chat/completions)</option>
+            </select>
+          </div>
+          <div class="pg-field pg-field-grow">
+            <label class="form-label" for="pg-model">Model</label>
+            <input id="pg-model" list="pg-model-list" placeholder="örn. claude-sonnet-5 veya deepseek/deepseek-v4-flash" autocomplete="off" />
+            <datalist id="pg-model-list"></datalist>
+          </div>
+          <div class="pg-field">
+            <label class="form-label" for="pg-maxtok">max_tokens</label>
+            <input id="pg-maxtok" type="number" value="512" min="1" style="width:96px" />
+          </div>
+          <div class="pg-field pg-field-check">
+            <label class="form-label" for="pg-stream">stream</label>
+            <input id="pg-stream" type="checkbox" checked />
+          </div>
+        </div>
+
+        <div class="pg-chat" id="pg-chat"></div>
+
+        <div class="pg-input-row">
+          <textarea id="pg-input" rows="3" placeholder="Mesajını yaz… (Enter ile gönder, Shift+Enter ile satır atla)" autocomplete="off"></textarea>
+        </div>
+
+        <div class="pg-status" id="pg-status">
+          <span class="hint">Henüz istek yapılmadı.</span>
+        </div>
       </section>
 
       <!-- İstatistikler -->

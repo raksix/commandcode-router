@@ -610,3 +610,56 @@ tbody tr:hover { background: rgba(255, 255, 255, 0.015); }
   vertical-align: middle; margin-right: 6px;
 }
 .ewma-bar > i { display: block; height: 100%; background: var(--accent); }
+
+/* ---- Playground ---- */
+.pg-toolbar {
+  display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;
+  margin: 14px 0 12px;
+}
+.pg-field { display: flex; flex-direction: column; gap: 6px; }
+.pg-field-grow { flex: 1 1 280px; min-width: 220px; }
+.pg-field-check { justify-content: center; }
+.pg-field input, .pg-field select { background: var(--card-elev); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px;
+  outline: none; }
+.pg-field input:focus, .pg-field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.pg-field-check input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+.pg-chat {
+  display: flex; flex-direction: column; gap: 12px;
+  min-height: 120px; max-height: 52vh; overflow-y: auto;
+  padding: 14px; border: 1px solid var(--border); border-radius: 12px;
+  background: #0c0c0e;
+}
+.pg-msg { display: flex; flex-direction: column; gap: 4px; max-width: 92%; }
+.pg-msg.user { align-self: flex-end; align-items: flex-end; }
+.pg-msg.assistant { align-self: flex-start; align-items: flex-start; }
+.pg-msg .pg-bubble {
+  padding: 10px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word; border: 1px solid var(--border);
+}
+.pg-msg.user .pg-bubble { background: var(--accent-soft); border-color: var(--accent-ring); }
+.pg-msg.assistant .pg-bubble { background: var(--card-elev); }
+.pg-msg .pg-meta { font-size: 11px; color: var(--dim); }
+.pg-msg.assistant .pg-bubble.streaming::after {
+  content: '▋'; margin-left: 1px; color: var(--accent-hover); animation: pg-blink 1s steps(2) infinite;
+}
+@keyframes pg-blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+.pg-input-row { margin-top: 12px; }
+.pg-input-row textarea {
+  width: 100%; resize: vertical; background: var(--card-elev); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; font-size: 13.5px;
+  font-family: inherit; outline: none; line-height: 1.5;
+}
+.pg-input-row textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.pg-status {
+  margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: #0c0c0e; font-size: 12.5px; color: var(--muted); min-height: 20px;
+}
+.pg-status b { color: var(--text); }
+.pg-status .ok { color: var(--green); }
+.pg-status .err { color: var(--red); }
+.pg-status pre {
+  margin: 8px 0 0; padding: 10px; background: #060608; border-radius: 8px;
+  border: 1px solid var(--border); overflow-x: auto; font-size: 11.5px; color: var(--muted);
+  max-height: 220px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+}
