@@ -207,94 +207,107 @@ function pipeConvertedStream({ upstreamRes, res, controller, log }) {
   }
 
   const body = upstreamRes.bodyStream ?? upstreamRes.body;
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
-  let buffer = '';
-  let started = false; // Anthropic message_start + content_block_start gönderildi mi?
-  let modelName = null;
-  let usage = null; // stream'den çıkarılan token kullanımı
-
-  // İlk geçerli data bloğunda Anthropic stream başlangıcı (message_start + content_block_start)
-  const ensureStarted = (chunkText) => {
-    if (started) return;
+  // AĞU'26: Web ReadableStream tek seferlik — locked kontrolü + byte toplama ile oku.
+  (async () => {
+    let text;
     try {
-      const lines = chunkText.split('\n');
-      for (const line of lines) {
-        if (line.startsWith('data:') && line !== 'data: [DONE]') {
-          const j = JSON.parse(line.slice(5));
-          if (j.model) modelName = j.model;
-        }
+      if (body.locked) { try { res.end(); } catch {} ; return; }
+      const reader = body.getReader();
+      const chunks = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) chunks.push(value);
       }
-    } catch {}
-    const msgStart = JSON.stringify({
-      type: 'message_start',
-      message: {
-        id: 'msg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-        type: 'message', role: 'assistant', model: modelName || '',
-        content: [], stop_reason: null, stop_sequence: null,
-        usage: { input_tokens: 0, output_tokens: 0 }
+      try { reader.releaseLock(); } catch {}
+      const totalLen = chunks.reduce((n, c) => n + (c.byteLength || c.length || 0), 0);
+      const buf = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const c of chunks) {
+        const arr = c instanceof Uint8Array ? c : new Uint8Array(c);
+        buf.set(arr, offset);
+        offset += arr.byteLength;
       }
-    });
-    const blockStart = JSON.stringify({
-      type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' }
-    });
-    res.write(encoder.encode(`data: ${msgStart}\n\ndata: ${blockStart}\n\n`));
-    started = true;
-  };
+      text = new TextDecoder().decode(buf);
+    } catch (e) {
+      try { res.end(); } catch {}
+      return;
+    }
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    let buffer = '';
+    let started = false; // Anthropic message_start + content_block_start gönderildi mi?
+    let modelName = null;
+    let usage = null; // stream'den çıkarılan token kullanımı
 
-  const pump = () => {
-    reader.read().then(({ done, value }) => {
-      if (done) {
-        // son buffer'ı da işle (tamamlanmamış event varsa)
-        if (buffer.trim()) {
-          const converted = openAISToAnthropicSSE(buffer);
-          if (converted) {
-            ensureStarted(buffer);
-            res.write(encoder.encode(converted));
+    // İlk geçerli data bloğunda Anthropic stream başlangıcı (message_start + content_block_start)
+    const ensureStarted = (chunkText) => {
+      if (started) return;
+      try {
+        const lines = chunkText.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data:') && line !== 'data: [DONE]') {
+            const j = JSON.parse(line.slice(5));
+            if (j.model) modelName = j.model;
           }
         }
-        // token istatistikleri
-        const u = usage || extractOpenAIUsage(buffer);
-        if (u) {
-          recordTokens({ inputTokens: u.prompt_tokens, outputTokens: u.completion_tokens });
-          if (log) {
-            log.inputTokens = u.prompt_tokens ?? null;
-            log.outputTokens = u.completion_tokens ?? null;
-            markDirty();
-          }
+      } catch {}
+      const msgStart = JSON.stringify({
+        type: 'message_start',
+        message: {
+          id: 'msg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+          type: 'message', role: 'assistant', model: modelName || '',
+          content: [], stop_reason: null, stop_sequence: null,
+          usage: { input_tokens: 0, output_tokens: 0 }
         }
-        res.end();
-        return;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      // `\n\n` ile ayrık event bloklarını işle
+      });
+      const blockStart = JSON.stringify({
+        type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' }
+      });
+      res.write(encoder.encode(`data: ${msgStart}\n\ndata: ${blockStart}\n\n`));
+      started = true;
+    };
+
+    try {
+      // buffer + text'i birleştir, \n\n event bloklarına böl
+      buffer = text;
       const blocks = buffer.split('\n\n');
-      buffer = blocks.pop(); // son blok eksik olabilir
       for (const b of blocks) {
         if (!b.trim()) continue;
         const u = extractOpenAIUsage(b);
         if (u) usage = u;
         const converted = openAISToAnthropicSSE(b);
         if (!converted) {
-          // SSE parse edilemedi (örn. hata gövdesi) -> ham geç
           res.write(encoder.encode(b + '\n\n'));
           continue;
         }
         ensureStarted(b);
         res.write(encoder.encode(converted));
       }
-      pump();
-    }).catch((err) => {
+      // son buffer'ı da işle (eksik event varsa)
+      if (buffer.trim()) {
+        const converted = openAISToAnthropicSSE(buffer);
+        if (converted) {
+          ensureStarted(buffer);
+          res.write(encoder.encode(converted));
+        }
+      }
+      const u = usage || extractOpenAIUsage(buffer);
+      if (u) {
+        recordTokens({ inputTokens: u.prompt_tokens, outputTokens: u.completion_tokens });
+        if (log) {
+          log.inputTokens = u.prompt_tokens ?? null;
+          log.outputTokens = u.completion_tokens ?? null;
+          markDirty();
+        }
+      }
+      res.end();
+    } catch (err) {
       try { res.end(); } catch {}
-    });
-  };
-  pump();
+    }
+  })();
 
-  res.on('close', () => {
-    try { reader.cancel(); } catch {}
-    controller.abort();
-  });
+  res.on('close', () => controller.abort());
 }
 
 // forward all headers except ones the proxy must own
