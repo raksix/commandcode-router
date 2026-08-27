@@ -438,3 +438,17 @@ tr:last-child td { border-bottom: none; }
   .stats-strip { grid-template-columns: repeat(2, 1fr); }
   .row-form { flex-direction: column; }
 }
+
+/* ---- proxy pool section ---- */
+.filter-tabs { display:flex; gap:2px; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:2px; }
+.filter-tabs .filter-tab { background:transparent; border:0; padding:6px 10px; font:500 12px inherit; color:var(--muted); cursor:pointer; border-radius:4px; }
+.filter-tabs .filter-tab.on { background:var(--ink); color:#fff; }
+.table-scroll { max-height: 60vh; overflow:auto; border:1px solid var(--line); border-radius:6px; }
+#proxies-table tbody tr.disabled-row { opacity:.55; }
+#proxies-table td.col-status .pill { display:inline-block; padding:3px 9px; border-radius:99px; font:600 11px/1.4 inherit; text-transform:uppercase; letter-spacing:.04em; }
+#proxies-table td.col-status .pill.ok { background:#E8F3EC; color:var(--green); }
+#proxies-table td.col-status .pill.warn { background:#FCF1D9; color:var(--yellow); }
+#proxies-table td.col-status .pill.err { background:#F7E0E0; color:var(--red); }
+#proxies-table td.col-status .pill.cool { background:#E7E7FF; color:var(--indigo); }
+.ewma-bar { display:inline-block; width:60px; height:6px; background:#EEEAE0; border-radius:99px; overflow:hidden; vertical-align:middle; margin-right:6px; }
+.ewma-bar > i { display:block; height:100%; }
