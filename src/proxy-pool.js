@@ -33,7 +33,8 @@ const EMPTY_PROXY_STATE = {
 };
 
 function ensureState() {
-  if (!data.state.proxies) {
+  if (!data.state) data.state = {};
+  if (!data.state.proxies || !Array.isArray(data.state.proxies.order)) {
     data.state.proxies = structuredClone(EMPTY_PROXY_STATE);
   }
   return data.state.proxies;
@@ -454,17 +455,22 @@ let _proxyAgentCache = null; // { url, agent }
 let _proxyAgentForUrl = null;
 
 export function getOutboundProxy() {
-  const rec = pickNext();
-  if (!rec) return null;
-  const proto = (rec.protocol || 'http').toLowerCase();
-  const auth = rec.username ? `${encodeURIComponent(rec.username)}:${encodeURIComponent(rec.password)}@` : '';
-  const proxyUrl = `${proto}://${auth}${rec.host}:${rec.port}`;
-  // aynı proxy için agent'ı yeniden üretme (connection reuse)
-  if (_proxyAgentForUrl !== proxyUrl) {
-    _proxyAgentCache = new ProxyAgent(proxyUrl);
-    _proxyAgentForUrl = proxyUrl;
+  try {
+    const rec = pickNext();
+    if (!rec) return null;
+    const proto = (rec.protocol || 'http').toLowerCase();
+    const auth = rec.username ? `${encodeURIComponent(rec.username)}:${encodeURIComponent(rec.password)}@` : '';
+    const proxyUrl = `${proto}://${auth}${rec.host}:${rec.port}`;
+    // aynı proxy için agent'ı yeniden üretme (connection reuse)
+    if (_proxyAgentForUrl !== proxyUrl) {
+      _proxyAgentCache = new ProxyAgent(proxyUrl);
+      _proxyAgentForUrl = proxyUrl;
+    }
+    return { rec, agent: _proxyAgentCache, url: proxyUrl };
+  } catch (err) {
+    console.error('[proxy] getOutboundProxy hatası:', err.message);
+    return null;
   }
-  return { rec, agent: _proxyAgentCache, url: proxyUrl };
 }
 
 // fetch için dispatcher seçeneğini döndürür (proxy yoksa undefined -> düz fetch)
