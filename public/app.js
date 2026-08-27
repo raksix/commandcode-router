@@ -209,6 +209,7 @@ function renderExposedList() {
       if (exposedSelection.has(key)) exposedSelection.delete(key);
       else exposedSelection.add(key);
       renderExposedList();
+      scheduleSaveExposed(); // anında backend'e yaz (F5 sonrası state korunsun)
     };
     row.querySelector('.toggle').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -220,6 +221,21 @@ function renderExposedList() {
       toggle();
     });
   });
+}
+
+// ---- toggle değişince backend'e debounce ile otomatik kaydet ----
+// Böylece kullanıcı "disable" yaptıktan sonra F5 atsa bile state backend'de kalır.
+let saveExposedTimer = null;
+function scheduleSaveExposed() {
+  if (saveExposedTimer) clearTimeout(saveExposedTimer);
+  saveExposedTimer = setTimeout(async () => {
+    try {
+      await api('/api/exposed-models', {
+        method: 'POST',
+        body: JSON.stringify({ models: exposedKeysToIds(exposedSelection) })
+      });
+    } catch (err) { toast(err.message, 'err'); }
+  }, 350);
 }
 // ---- render ----
 async function refresh() {
@@ -259,7 +275,12 @@ async function refresh() {
       const m = ccModelDetails.find((x) => x.id === id);
       return m ? modelKey(m) : id;
     }));
-    const same = next.size === exposedSelection.size && [...next].every((x) => exposedSelection.has(x));
+    // Simetrik karşılaştırma: next == exposedSelection (iki yön de kontrol).
+    // Eski asimetrik kontrol exposedSelection'da FAZLA olan (next'te olmayan)
+    // key'leri yok sayıyordu ve UI state'i backend'e yazılmadan eziliyordu.
+    const same = next.size === exposedSelection.size
+      && [...next].every((x) => exposedSelection.has(x))
+      && [...exposedSelection].every((x) => next.has(x));
     if (!same) {
       exposedSelection = next;
       renderExposedList();
