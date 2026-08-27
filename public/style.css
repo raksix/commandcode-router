@@ -663,3 +663,148 @@ tbody tr:hover { background: rgba(255, 255, 255, 0.015); }
   border: 1px solid var(--border); overflow-x: auto; font-size: 11.5px; color: var(--muted);
   max-height: 220px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
 }
+
+/* ============================================================================
+   PROXY HAVUZU — redesigned visuals
+   ============================================================================ */
+
+/* ---- stat cards ---- */
+.proxy-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin: 16px 0 14px;
+}
+.proxy-stat-card {
+  position: relative;
+  background: linear-gradient(180deg, var(--card-elev), var(--card));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 16px 14px;
+  overflow: hidden;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.proxy-stat-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.proxy-stat-icon {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+  color: var(--c);
+  margin-bottom: 12px;
+}
+.proxy-stat-icon .ic { width: 18px; height: 18px; }
+.proxy-stat-meta { display: flex; flex-direction: column; gap: 2px; }
+.proxy-stat-val {
+  font-size: 28px; font-weight: 700; line-height: 1.1;
+  font-family: var(--font-mono); letter-spacing: -0.02em;
+}
+.proxy-stat-lbl { font-size: 12px; color: var(--muted); font-weight: 500; }
+.proxy-stat-spark {
+  position: absolute; right: 12px; bottom: 10px;
+  width: 64px; height: 28px; opacity: .85;
+}
+.proxy-stat-spark svg { width: 100%; height: 100%; }
+.proxy-stat-spark polyline {
+  fill: none; stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
+}
+.proxy-stat-gauge { position: absolute; right: 12px; bottom: 10px; width: 38px; height: 38px; }
+.health-gauge circle { transition: stroke-dashoffset .4s ease, stroke .4s ease; }
+
+/* ---- pool composition bar ---- */
+.proxy-composition { margin: 12px 0 20px; }
+.proxy-composition-bar {
+  display: flex; height: 10px; border-radius: 99px; overflow: hidden;
+  background: var(--border); border: 1px solid var(--border);
+}
+.proxy-composition-bar .seg { transition: width .4s ease; height: 100%; }
+.proxy-composition-bar .seg-active { background: var(--green); }
+.proxy-composition-bar .seg-cool { background: var(--yellow); }
+.proxy-composition-bar .seg-disabled { background: var(--red); }
+.proxy-composition-legend {
+  display: flex; gap: 18px; margin-top: 8px; font-size: 12px; color: var(--muted);
+}
+.proxy-composition-legend .dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px;
+}
+.proxy-composition-legend b { color: var(--text); font-family: var(--font-mono); }
+
+/* ---- import layout ---- */
+.proxy-import-grid {
+  display: grid; grid-template-columns: 1fr 300px; gap: 18px; margin: 8px 0 22px;
+}
+.proxy-import-main textarea { min-height: 110px; }
+.proxy-import-side {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.proxy-info-list { list-style: none; padding: 0; margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+.proxy-info-list li { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.proxy-info-list li:last-child { border-bottom: 0; }
+.proxy-info-list b { color: var(--text); }
+.proxy-info-list code {
+  font-family: var(--font-mono); font-size: 11px; background: var(--accent-soft);
+  color: var(--accent-hover); padding: 1px 5px; border-radius: 4px;
+}
+
+/* ---- table header ---- */
+.proxy-table-header {
+  display: flex; align-items: center; gap: 12px; margin: 4px 0 10px; flex-wrap: wrap;
+}
+.proxy-table-header h3 { display: flex; align-items: center; }
+
+/* ---- proxy table specifics ---- */
+.proxy-table td.col-status .pill { display:inline-block; padding:3px 10px; border-radius:99px; font:600 11px/1.4 inherit; text-transform:uppercase; letter-spacing:.04em; }
+.proxy-table td.col-status .pill.ok { background:var(--green-bg); color:var(--green); }
+.proxy-table td.col-status .pill.warn { background:var(--yellow-bg); color:var(--yellow); }
+.proxy-table td.col-status .pill.err { background:var(--red-bg); color:var(--red); }
+.proxy-table td.col-status .pill.cool { background:var(--blue-bg); color:var(--blue); }
+
+.proxy-table .col-latency { width: 120px; }
+.proxy-table .latency-bar {
+  width: 100%; height: 4px; border-radius: 99px; background: var(--border);
+  margin-top: 5px; overflow: hidden; position: relative;
+}
+.proxy-table .latency-bar > i {
+  position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px;
+  transition: width .4s ease, background .4s ease;
+}
+
+.proxy-table .ewma-donut {
+  width: 34px; height: 34px; display: inline-block; vertical-align: middle; margin-right: 8px;
+}
+.proxy-table .ewma-donut circle { transition: stroke-dashoffset .4s ease, stroke .4s ease; }
+.proxy-table .ewma-text {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+}
+
+.proxy-table tr.disabled-row { opacity: .55; }
+.proxy-table .endpoint-cell {
+  font-family: var(--font-mono); font-size: 13px; color: var(--text);
+}
+.proxy-table .endpoint-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.proxy-table .weight-input {
+  width: 56px; padding: 4px 6px; text-align: center;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); font-family: var(--font-mono); font-size: 12px;
+}
+.proxy-table .weight-input:focus { outline: none; border-color: var(--accent); }
+
+.proxy-table .row-actions { display: flex; gap: 2px; justify-content: flex-end; }
+.proxy-table .icon-btn {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid transparent;
+  background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center;
+  font-size: 14px; line-height: 1; transition: all .12s ease;
+}
+.proxy-table .icon-btn:hover { background: var(--card-elev); color: var(--text); border-color: var(--border); }
+.proxy-table .icon-btn.danger:hover { color: var(--red); border-color: var(--red-bg); }
+
+@media (max-width: 1100px) {
+  .proxy-stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .proxy-import-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .proxy-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}

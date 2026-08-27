@@ -351,40 +351,120 @@ curl -X POST http://localhost:3025/v1/messages \
         </h2>
         <p class="hint">Çıkış trafiği için kullanılacak HTTP proxy havuzu. Bulk import yapın — sistem hatalı olanları <b>12 saat otomatik disable</b> eder ve ağırlıklı-eşit dağıtır.</p>
 
-        <div class="stats-strip" id="proxy-stats">
-          <div class="stat"><div class="stat-val" id="proxy-stat-total">0</div><div class="stat-lbl">Toplam</div></div>
-          <div class="stat"><div class="stat-val green" id="proxy-stat-active">0</div><div class="stat-lbl">Aktif</div></div>
-          <div class="stat"><div class="stat-val" style="color:var(--yellow)" id="proxy-stat-cool">0</div><div class="stat-lbl">Cooldown</div></div>
-          <div class="stat"><div class="stat-val red" id="proxy-stat-disabled">0</div><div class="stat-lbl">Disabled (12h)</div></div>
-          <div class="stat"><div class="stat-val" id="proxy-stat-ewma">–</div><div class="stat-lbl">Ortalama sağlık</div></div>
-        </div>
+        <!-- Geliştirilmiş stats kartları -->
+        <div class="proxy-stats-grid" id="proxy-stats">
+          <div class="proxy-stat-card">
+            <div class="proxy-stat-icon" style="--c:var(--blue)"><svg class="ic"><use href="/sprite.svg#i-globe"/></svg></div>
+            <div class="proxy-stat-meta">
+              <div class="proxy-stat-val" id="proxy-stat-total">0</div>
+              <div class="proxy-stat-lbl">Toplam proxy</div>
+            </div>
+            <div class="proxy-stat-spark"><svg viewBox="0 0 60 24" preserveAspectRatio="none"><polyline id="spark-total" points="0,12 60,12" fill="none" stroke="#3b82f6" stroke-width="1.5"/></svg></div>
+          </div>
 
-        <h3 style="font-size:14px;margin:18px 0 6px"><svg class="ic"><use href="/sprite.svg#i-plus"/></svg> Bulk import</h3>
-        <p class="hint">Satır başına bir proxy. Formatlar: <code>user:pass@host:port</code> · <code>host:port:user:pass</code> · <code>http://user:pass@host:port</code> · <code>socks5://host:port</code>. <code>#</code> ile başlayan satırlar yorum sayılır.</p>
-        <textarea id="proxy-bulk-text" rows="6" placeholder="http://alice:secret@1.2.3.4:8080&#10;5.6.7.8:3128:admin:pa55w0rd&#10;socks5://9.9.9.9:1080&#10;# boş/geçersiz satırlar reddedilir"></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
-          <input id="proxy-bulk-source" placeholder="Etiket (opsiyonel)" style="max-width:240px" />
-          <button id="proxy-bulk-btn" class="btn btn-primary"><svg class="ic ic-xs"><use href="/sprite.svg#i-plus"/></svg> Ekle</button>
-          <span class="hint" id="proxy-bulk-hint"></span>
-        </div>
+          <div class="proxy-stat-card">
+            <div class="proxy-stat-icon" style="--c:var(--green)"><svg class="ic"><use href="/sprite.svg#i-circle-check"/></svg></div>
+            <div class="proxy-stat-meta">
+              <div class="proxy-stat-val" id="proxy-stat-active" style="color:var(--green)">0</div>
+              <div class="proxy-stat-lbl">Aktif</div>
+            </div>
+            <div class="proxy-stat-spark"><svg viewBox="0 0 60 24" preserveAspectRatio="none"><polyline id="spark-active" points="0,12 60,12" fill="none" stroke="#10b981" stroke-width="1.5"/></svg></div>
+          </div>
 
-        <h3 style="font-size:14px;margin:22px 0 6px"><svg class="ic"><use href="/sprite.svg#i-shield"/></svg> Proxy'ler</h3>
-        <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-          <input id="proxy-search" placeholder="host / etiket ara…" style="flex:1;min-width:180px" />
-          <div class="filter-tabs">
-            <button class="filter-tab on" data-f="all">Tümü</button>
-            <button class="filter-tab" data-f="active">Aktif</button>
-            <button class="filter-tab" data-f="cooldown">Cooldown</button>
-            <button class="filter-tab" data-f="disabled">Disabled</button>
+          <div class="proxy-stat-card">
+            <div class="proxy-stat-icon" style="--c:var(--yellow)"><svg class="ic"><use href="/sprite.svg#i-clock"/></svg></div>
+            <div class="proxy-stat-meta">
+              <div class="proxy-stat-val" id="proxy-stat-cool" style="color:var(--yellow)">0</div>
+              <div class="proxy-stat-lbl">Cooldown</div>
+            </div>
+            <div class="proxy-stat-spark"><svg viewBox="0 0 60 24" preserveAspectRatio="none"><polyline id="spark-cool" points="0,12 60,12" fill="none" stroke="#f59e0b" stroke-width="1.5"/></svg></div>
+          </div>
+
+          <div class="proxy-stat-card">
+            <div class="proxy-stat-icon" style="--c:var(--red)"><svg class="ic"><use href="/sprite.svg#i-ban"/></svg></div>
+            <div class="proxy-stat-meta">
+              <div class="proxy-stat-val" id="proxy-stat-disabled" style="color:var(--red)">0</div>
+              <div class="proxy-stat-lbl">Disabled (12h)</div>
+            </div>
+            <div class="proxy-stat-spark"><svg viewBox="0 0 60 24" preserveAspectRatio="none"><polyline id="spark-disabled" points="0,12 60,12" fill="none" stroke="#ef4444" stroke-width="1.5"/></svg></div>
+          </div>
+
+          <div class="proxy-stat-card">
+            <div class="proxy-stat-icon" style="--c:var(--accent)"><svg class="ic"><use href="/sprite.svg#i-activity"/></svg></div>
+            <div class="proxy-stat-meta">
+              <div class="proxy-stat-val" id="proxy-stat-ewma">–</div>
+              <div class="proxy-stat-lbl">Ortalama sağlık</div>
+            </div>
+            <div class="proxy-stat-gauge">
+              <svg viewBox="0 0 36 36" class="health-gauge">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--border)" stroke-width="3"/>
+                <circle id="gauge-ewma" cx="18" cy="18" r="15.5" fill="none" stroke="#10b981" stroke-width="3"
+                        stroke-dasharray="97.4" stroke-dashoffset="97.4" stroke-linecap="round"
+                        transform="rotate(-90 18 18)"/>
+              </svg>
+            </div>
           </div>
         </div>
+
+        <!-- Pool composition chart -->
+        <div class="proxy-composition" id="proxy-composition">
+          <div class="proxy-composition-bar">
+            <div class="seg seg-active" id="comp-active" style="width:0%"></div>
+            <div class="seg seg-cool" id="comp-cool" style="width:0%"></div>
+            <div class="seg seg-disabled" id="comp-disabled" style="width:0%"></div>
+          </div>
+          <div class="proxy-composition-legend">
+            <span><i class="dot" style="background:var(--green)"></i> Aktif <b id="leg-active">0</b></span>
+            <span><i class="dot" style="background:var(--yellow)"></i> Cooldown <b id="leg-cool">0</b></span>
+            <span><i class="dot" style="background:var(--red)"></i> Disabled <b id="leg-disabled">0</b></span>
+          </div>
+        </div>
+
+        <!-- Bulk import -->
+        <div class="proxy-import-grid">
+          <div class="proxy-import-main">
+            <h3 style="font-size:14px;margin:0 0 8px"><svg class="ic"><use href="/sprite.svg#i-plus"/></svg> Bulk import</h3>
+            <p class="hint">Satır başına bir proxy. Formatlar: <code>user:pass@host:port</code> · <code>host:port:user:pass</code> · <code>http://user:pass@host:port</code> · <code>socks5://host:port</code>. <code>#</code> ile başlayan satırlar yorum sayılır.</p>
+            <textarea id="proxy-bulk-text" rows="5" placeholder="http://alice:secret@1.2.3.4:8080&#10;5.6.7.8:3128:admin:pa55w0rd&#10;socks5://9.9.9.9:1080&#10;# boş/geçersiz satırlar reddedilir"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+              <input id="proxy-bulk-source" placeholder="Etiket (opsiyonel)" style="max-width:240px" />
+              <button id="proxy-bulk-btn" class="btn btn-primary"><svg class="ic ic-xs"><use href="/sprite.svg#i-plus"/></svg> Ekle</button>
+              <span class="hint" id="proxy-bulk-hint"></span>
+            </div>
+          </div>
+
+          <div class="proxy-import-side">
+            <h3 style="font-size:14px;margin:0 0 8px"><svg class="ic"><use href="/sprite.svg#i-info"/></svg> Nasıl çalışır?</h3>
+            <ul class="proxy-info-list">
+              <li><b>Akıllı rotasyon:</b> Her proxy'ye <code>weight × EWMA × streak</code> ile kredi verilir; en yüksek kredili seçilir.</li>
+              <li><b>12h otomatik disable:</b> 3 hata / 10 dk veya tek <code>407</code> → proxy 12 saat park edilir.</li>
+              <li><b>Cooldown:</b> Tek hata → 1dk, 2 hata → 2dk, … max 30dk dinlenir.</li>
+              <li><b>Health check:</b> 5 dk'da bir <code>gstatic</code> ile probe edilir, EWMA skoru güncellenir.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Proxy list -->
+        <div class="proxy-table-header">
+          <h3 style="font-size:14px;margin:0"><svg class="ic"><use href="/sprite.svg#i-shield"/></svg> Proxy'ler</h3>
+          <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap">
+            <input id="proxy-search" placeholder="host / etiket ara…" style="flex:1;min-width:160px;max-width:280px" />
+            <div class="filter-tabs">
+              <button class="filter-tab on" data-f="all">Tümü</button>
+              <button class="filter-tab" data-f="active">Aktif</button>
+              <button class="filter-tab" data-f="cooldown">Cooldown</button>
+              <button class="filter-tab" data-f="disabled">Disabled</button>
+            </div>
+          </div>
+        </div>
+
         <div class="table-scroll">
-          <table class="accounts" id="proxies-table">
+          <table class="accounts proxy-table" id="proxies-table">
             <thead><tr>
               <th>Endpoint</th>
               <th>Durum</th>
               <th>Sağlık</th>
-              <th>Latency</th>
+              <th class="col-latency">Latency</th>
               <th>Ağırlık</th>
               <th>Kullanım</th>
               <th></th>
