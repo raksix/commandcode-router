@@ -790,3 +790,175 @@ function esc(s) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
 }
+
+// ============================================================================
+// PROXY HAVUZU
+// ============================================================================
+const proxyState = { proxies: [], stats: {}, config: {}, filter: 'all', q: '' };
+
+function proxyPill(rec) {
+  if (rec.disabled) return `<span class="pill err">Disabled · ${proxyRemain(rec.disabledRemainingS)}</span>`;
+  if (rec.cooldownRemainingMs > 0) return `<span class="pill cool">Cooldown · ${proxyRemain(Math.ceil(rec.cooldownRemainingMs/1000))}</span>`;
+  if (!rec.active) return `<span class="pill warn">Inactive (w=${rec.weight})</span>`;
+  return `<span class="pill ok">Aktif</span>`;
+}
+function proxyRemain(s) {
+  if (!s || s <= 0) return '–';
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  if (h) return `${h}s ${m}dk`;
+  if (m) return `${m}dk ${sec}sn`;
+  return `${sec}sn`;
+}
+function proxyLatency(rec) {
+  if (rec.latencyMs == null) return '<span style="color:var(--muted)">–</span>';
+  const slow = rec.latencyMs > 2500 ? ' style="color:var(--yellow)"' : '';
+  return `<span${slow}>${rec.latencyMs}ms</span>`;
+}
+function proxyEwma(v) {
+  const pct = Math.max(0, Math.min(1, v)) * 100;
+  return `<span class="ewma-bar"><i style="width:${pct.toFixed(0)}%;background:linear-gradient(90deg,var(--red),var(--yellow),var(--green))"></i></span><span style="font-family:var(--mono);font-size:12px">${v.toFixed(2)}</span>`;
+}
+function proxyAgo(ts) {
+  if (!ts) return '—';
+  const d = Math.floor((Date.now() - ts) / 1000);
+  if (d < 60) return `${d}sn`;
+  if (d < 3600) return `${Math.floor(d/60)}dk`;
+  return `${Math.floor(d/3600)}sa`;
+}
+function proxyRow(rec) {
+  const tr = document.createElement('tr');
+  tr.dataset.id = rec.id;
+  if (rec.disabled) tr.classList.add('disabled-row');
+  tr.innerHTML = `
+    <td><div style="font-family:var(--mono);font-size:13px">${esc(rec.endpoint)}</div>
+        <div style="color:var(--muted);font-size:11px">${esc(rec.label || '')} ${rec.tags?.length ? '· ' + rec.tags.map(t=>'#'+esc(t)).join(' ') : ''}</div></td>
+    <td class="col-status">${proxyPill(rec)}<div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(rec.disabledReason || '')}</div></td>
+    <td>${proxyEwma(rec.ewma)}<div style="font-size:11px;color:var(--muted)">streak ${rec.streak} · ok/fail ${rec.reportedOk}/${rec.reportedFail}</div></td>
+    <td>${proxyLatency(rec)}<div style="font-size:11px;color:var(--muted)">${esc(rec.lastCheckStatus || '–')}</div></td>
+    <td><input type="number" min="0" max="20" value="${rec.weight}" data-proxy-act="weight" style="width:60px"></td>
+    <td style="font-family:var(--mono)">${rec.assignedCount}<div style="font-size:11px;color:var(--muted)">${proxyAgo(rec.lastUsedAt)} önce</div></td>
+    <td style="white-space:nowrap;text-align:right">
+      <button class="icon-btn" data-proxy-act="toggle" title="${rec.disabled ? 'Etkinleştir' : 'Devre dışı bırak'}">${rec.disabled ? '↻' : '⏸'}</button>
+      <button class="icon-btn" data-proxy-act="reportOk" title="OK raporla">✓</button>
+      <button class="icon-btn" data-proxy-act="reportFail" title="Hata raporla">✗</button>
+      <button class="icon-btn" data-proxy-act="delete" title="Sil" style="color:var(--red)">×</button>
+    </td>`;
+  return tr;
+}
+function proxyVisible(rec) {
+  if (proxyState.q) {
+    const hay = [rec.endpoint, rec.label, ...(rec.tags||[])].join(' ').toLowerCase();
+    if (!hay.includes(proxyState.q.toLowerCase())) return false;
+  }
+  switch (proxyState.filter) {
+    case 'active':    return !rec.disabled && rec.active;
+    case 'cooldown':  return !rec.disabled && rec.cooldownRemainingMs > 0;
+    case 'disabled':  return rec.disabled;
+    default: return true;
+  }
+}
+
+async function refreshProxies() {
+  const j = await api('/api/proxies');
+  if (!j || !j.ok) return;
+  proxyState.proxies = j.proxies || [];
+  proxyState.stats = j.stats || {};
+  proxyState.config = j.config || {};
+  $('#proxy-stat-total').textContent = proxyState.stats.total;
+  $('#proxy-stat-active').textContent = proxyState.stats.active;
+  $('#proxy-stat-cool').textContent = proxyState.stats.coolingDown;
+  $('#proxy-stat-disabled').textContent = proxyState.stats.disabled;
+  $('#proxy-stat-ewma').textContent = proxyState.stats.avgEwma;
+  renderProxies();
+}
+
+function renderProxies() {
+  const body = $('#proxies-body');
+  if (!body) return;
+  const list = proxyState.proxies.filter(proxyVisible).sort((a,b) => b.ewma - a.ewma);
+  body.innerHTML = '';
+  if (!list.length) {
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Filtreyle eşleşen proxy yok.</td></tr>`;
+    return;
+  }
+  for (const r of list) body.appendChild(proxyRow(r));
+}
+
+async function bulkAddProxies() {
+  const text = $('#proxy-bulk-text').value.trim();
+  if (!text) { toast('Lütfen en az bir satır girin', 'err'); return; }
+  const source = $('#proxy-bulk-source').value.trim() || undefined;
+  const j = await api('/api/proxies/bulk', { method:'POST', body: JSON.stringify({ text, source }) });
+  if (!j || !j.ok) { toast((j && j.error) || 'hata', 'err'); return; }
+  toast(`+${j.added} yeni, ${j.merged} merge (${j.invalid.length} geçersiz)`, 'ok');
+  $('#proxy-bulk-text').value = '';
+  $('#proxy-bulk-hint').textContent = j.invalid.length ? `${j.invalid.length} satır reddedildi: ${j.invalid.slice(0,3).join(' | ')}` : '';
+  refreshProxies();
+}
+
+async function pickProxyNext() {
+  const j = await api('/api/proxies/next', { method:'POST', body:'{}' });
+  if (!j || !j.ok) { toast((j && j.error) || 'aktif proxy yok', 'err'); return; }
+  toast(`→ ${j.proxy.endpoint}`, 'ok');
+  refreshProxies();
+}
+
+async function runProxyCheck() {
+  $('#proxy-check-btn').disabled = true;
+  const j = await api('/api/proxies/check?all=1', { method:'POST', body:'{}' });
+  $('#proxy-check-btn').disabled = false;
+  if (!j || !j.ok) { toast((j && j.error) || 'check başarısız', 'err'); return; }
+  toast(`${j.checked} proxy kontrol edildi`, 'ok');
+  refreshProxies();
+}
+
+// delegation: tek handler, click event bir noktadan yönetiliyor
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-proxy-act]');
+  if (!btn) return;
+  const tr = btn.closest('tr[data-id]');
+  if (!tr) return;
+  const id = tr.dataset.id;
+  const act = btn.dataset.proxyAct;
+  if (act === 'toggle') {
+    const rec = proxyState.proxies.find(p => p.id === id);
+    await api(`/api/proxies/${id}`, { method:'PATCH', body: JSON.stringify({ enabled: !rec.disabled }) });
+  } else if (act === 'reportOk' || act === 'reportFail') {
+    await api('/api/proxies/report', { method:'POST', body: JSON.stringify({ id, ok: act === 'reportOk', detail: act === 'reportOk' ? 'manual' : 'timeout' }) });
+  } else if (act === 'delete') {
+    if (!confirm('Bu proxy silinsin mi?')) return;
+    await api(`/api/proxies/${id}`, { method:'DELETE' });
+  }
+  refreshProxies();
+});
+document.addEventListener('change', async (e) => {
+  if (e.target.matches('[data-proxy-act="weight"]')) {
+    const id = e.target.closest('tr').dataset.id;
+    await api(`/api/proxies/${id}`, { method:'PATCH', body: JSON.stringify({ weight: parseFloat(e.target.value) }) });
+    refreshProxies();
+  }
+});
+$('#proxy-bulk-btn')?.addEventListener('click', bulkAddProxies);
+$('#proxy-check-btn')?.addEventListener('click', runProxyCheck);
+$('#proxy-next-btn')?.addEventListener('click', pickProxyNext);
+$('#proxy-search')?.addEventListener('input', e => { proxyState.q = e.target.value; renderProxies(); });
+document.querySelectorAll('#section-proxies .filter-tab').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#section-proxies .filter-tab').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  proxyState.filter = b.dataset.f;
+  renderProxies();
+}));
+
+// Sekmeye her girişte yenile (sadece bu seksiyon aktifse polling yavaşlatır)
+let proxyRefreshTimer = null;
+function startProxyAutoRefresh() {
+  if (proxyRefreshTimer) return;
+  refreshProxies();
+  proxyRefreshTimer = setInterval(() => {
+    if (document.querySelector('.side-link[data-section="proxies"]').classList.contains('active')) {
+      refreshProxies();
+    }
+  }, 8000);
+}
+const _origShowDashboard = showDashboard;
+showDashboard = async function() { await _origShowDashboard(); startProxyAutoRefresh(); };
