@@ -54,7 +54,7 @@ export async function fetchModels() {
       // aynı key Zen'e de bağlanır — ek olarak Zen model listesini çek.
       // Zen OpenAI-uyumlu ama base zaten /v1 ile bittiği için models path'i /models olarak yazılmalı
       // (base + /v1/models = /v1/v1/models → 404; base + /models = /v1/models → 200)
-      tasks.push({ acc, base: 'https://opencode.ai/zen/v1', modelsPath: '/models', provider: 'opencode-zen' });
+      tasks.push({ acc, base: UPSTREAM_BASES['opencode-zen'], modelsPath: '/models', provider: 'opencode-zen' });
     } else if (provider === 'opencode-zen') {
       tasks.push({ acc, base, modelsPath: '/models', provider: 'opencode-zen' });
     }
