@@ -175,25 +175,33 @@ export async function routeRequest({ url, method, headers, body, signal, route, 
     // AĞU'26: hesabın upstreamBase'i OmniRoute'a yönlendirilmişse model adına provider
     // prefix'i (örn. "command-code/") ekle. OmniRoute'un command-code sağlayıcısı
     // prefix'siz model adını kabul etmiyor ("No active credentials for provider: deepseek").
-    // Ayrıca kısa model adlarını OmniRoute'un beklediği vendor-prefix'li adlara map et.
+    // Ayrıca kısa model adlarını OmniRoute'un beklediği tam adlara map et.
+    // Alias değerinde "/" varsa zaten provider prefix'i içeriyor — olduğu gibi kullan,
+    // yoksa command-code/ ön eki ekle. Bazı modeller (claude-haiku-4-5) CommandCode
+    // Go plan'ında yok (MODEL_NOT_IN_PLAN) -> başka provider'a düşür (claude-web).
     const CC_MODEL_ALIASES = {
-      'claude-opus-5': 'claude-opus-4-7',
-      'claude-sonnet-5': 'claude-sonnet-4-6',
-      'gpt-5.6-luna': 'gpt-5.6-luna',
-      'deepseek-v4-flash': 'deepseek/deepseek-v4-flash',
-      'mimo-v2.5': 'xiaomi/mimo-v2.5'
+      'claude-opus-5': 'command-code/claude-opus-4-7',
+      'claude-sonnet-5': 'command-code/claude-sonnet-4-6',
+      'gpt-5.6-luna': 'command-code/gpt-5.6-luna',
+      'deepseek-v4-flash': 'command-code/deepseek/deepseek-v4-flash',
+      'mimo-v2.5': 'command-code/xiaomi/mimo-v2.5',
+      // claude-haiku CommandCode'da Pro+ plan gerektiriyor — claude-web'e düşür (ücretsiz).
+      'claude-haiku-4-5-20251001': 'claude-web/claude-haiku-4-5-20251001',
+      'claude-haiku-4-5': 'claude-web/claude-haiku-4-5-20251001'
     };
     if (typeof bodyForUpstream === 'string' && account.upstreamBase && /omniroute/i.test(account.upstreamBase)) {
       try {
         const parsed = JSON.parse(bodyForUpstream);
         const m = parsed?.model;
-        if (typeof m === 'string' && m
-            && !/^command-code\//.test(m) && !/^(opencode-go|opencode-zen)\//.test(m)) {
-          // slash var/yok farketmez; provider prefix'i yoksa ekle.
-          // ("deepseek/deepseek-v4-flash" -> "command-code/deepseek/deepseek-v4-flash";
-          //  "mimo-v2.5" -> "command-code/xiaomi/mimo-v2.5" (vendor namespace map))
-          const resolved = CC_MODEL_ALIASES[m] || m;
-          parsed.model = 'command-code/' + resolved;
+        if (typeof m === 'string' && m) {
+          // (1) Eğer alias map'te varsa direkt onu kullan
+          if (CC_MODEL_ALIASES[m]) {
+            parsed.model = CC_MODEL_ALIASES[m];
+          } else if (!/^[a-z0-9-]+\//.test(m)) {
+            // (2) zaten bir provider prefix'i (örn "command-code/") varsa dokunma
+            // (3) aksi halde command-code/ ön eki ekle
+            parsed.model = 'command-code/' + m;
+          }
           bodyForUpstream = JSON.stringify(parsed);
         }
       } catch { /* body JSON değilse dokunma */ }
