@@ -11,7 +11,10 @@ export const adminRouter = Router();
 
 export const UPSTREAM_BASES = {
   commandcode: 'https://api.commandcode.ai/provider',
-  'opencode-go': 'https://opencode.ai/zen/go/v1'
+  'opencode-go': 'https://opencode.ai/zen/go/v1',
+  // OpenCode Zen — aynı API key hem /zen/go/v1 hem /zen/v1'e erişir.
+  // OpenAI-uyumlu endpoint.
+  'opencode-zen': 'https://opencode.ai/zen/v1'
 };
 
 /** Hesabın upstream base URL'i (provider alanına göre; eski hesaplarda default commandcode). */
@@ -33,9 +36,28 @@ async function fetchModels() {
   const accounts = (data.config.accounts || []).filter(
     (a) => a.isActive && !getAccountState(a.id).banned
   );
-  const results = await Promise.all(accounts.map(async (acc) => {
+
+  // Her hesap için çekilecek endpoint listesi. opencode-go hesapları Zen'e de erişebiliyor
+  // (aynı API key) — bu yüzden hem Go hem Zen modellerini çekiyoruz, provider etiketiyle ayırıyoruz.
+  // opencode-zen hesabı varsa ek Zen çekmiyoruz (duplicate olur).
+  const tasks = [];
+  for (const acc of accounts) {
     const base = accountBaseUrl(acc).replace(/\/+$/, '');
-    const modelsPath = acc.provider === 'opencode-go' ? '/models' : '/v1/models';
+    const provider = acc.provider || 'commandcode';
+    if (provider === 'commandcode') {
+      tasks.push({ acc, base, modelsPath: '/v1/models', provider: 'commandcode' });
+    } else if (provider === 'opencode-go') {
+      tasks.push({ acc, base, modelsPath: '/models', provider: 'opencode-go' });
+      // aynı key Zen'e de bağlanır — ek olarak Zen model listesini çek.
+      // Zen OpenAI-uyumlu ama base zaten /v1 ile bittiği için models path'i /models olarak çığlışmadan yaz.
+      // (base + /v1/models = /v1/v1/models → 404; base + /models = /v1/models → 200)
+      tasks.push({ acc, base: 'https://opencode.ai/zen/v1', modelsPath: '/models', provider: 'opencode-zen' });
+    } else if (provider === 'opencode-zen') {
+      tasks.push({ acc, base, modelsPath: '/models', provider: 'opencode-zen' });
+    }
+  }
+
+  const results = await Promise.all(tasks.map(async ({ acc, base, modelsPath, provider }) => {
     try {
       const up = await fetch(base + modelsPath, {
         headers: { authorization: `Bearer ${acc.apiKey}` }
@@ -48,7 +70,7 @@ async function fetchModels() {
         id: m.id,
         name: m.name || m.id,
         context_length: m.context_length ?? null,
-        provider: acc.provider || 'commandcode',
+        provider,
         accountName: acc.name
       }));
     } catch {

@@ -3,7 +3,10 @@ import { data, getAccountState, markDirty } from './store.js';
 /** Provider -> upstream base URL (pool.js ve proxy.js ortak kullanır). */
 export const UPSTREAM_BASES = {
   commandcode: 'https://api.commandcode.ai/provider',
-  'opencode-go': 'https://opencode.ai/zen/go/v1'
+  'opencode-go': 'https://opencode.ai/zen/go/v1',
+  // OpenCode Zen — aynı API key hem /zen/go/v1 hem /zen/v1'e erişir (free + paid modeller).
+  // OpenAI-uyumlu: /v1/models, /v1/chat/completions, /v1/messages.
+  'opencode-zen': 'https://opencode.ai/zen/v1'
 };
 
 /** Hesabın upstream base URL'i (provider alanına göre; eski hesaplarda default commandcode). */
@@ -24,8 +27,10 @@ export function pickAccount() {
   data.state.roundRobinIndex = (idx + 1) % active.length;
   markDirty();
   const acc = active[idx];
-  // provider'dan base URL'i hesapla (proxy.js kolayca kullansın)
-  acc.upstreamBase = accountBaseUrl(acc);
+  // AĞU'26 fix: config'deki upstreamBase'i koruyoruz; provider default'una ezilmesin.
+  // Önceki kod acc.upstreamBase = accountBaseUrl(acc) ile her seferinde default'a
+  // düşürüyordu — bu, CommandCode hesaplarının OmniRoute'a yönlendirilmesini engelliyordu.
+  // Burada mutasyon YAPMA; gerekirse pool.js routeRequest içinde fallback kullanılır.
   return acc;
 }
 
@@ -153,12 +158,13 @@ export async function routeRequest({ url, method, headers, body, signal, route, 
     const upHeaders = { ...headers };
     upHeaders.authorization = `Bearer ${account.apiKey}`;
 
-    // opencode-go, model adlarında provider prefix'i kabul etmez:
+    // opencode-go ve opencode-zen, model adlarında provider prefix'i kabul etmez:
     // 'deepseek/deepseek-v4-flash' -> 'deepseek-v4-flash' (slash sonrası).
     // CommandCode /provider ise slash'lı adları kabul eder (test: 200 veriyor).
     // Alpha yolu pool.js'i atladığı için bu sadece provider yolunu etkiler.
     let bodyForUpstream = body;
-    if (account.provider === 'opencode-go' && typeof body === 'string') {
+    const slashProviders = new Set(['opencode-go', 'opencode-zen']);
+    if (slashProviders.has(account.provider) && typeof body === 'string') {
       try {
         const parsed = JSON.parse(body);
         if (parsed?.model && typeof parsed.model === 'string') {
