@@ -177,6 +177,20 @@ export async function routeRequest({ url, method, headers, body, signal, route, 
       'claude-haiku-4-5-20251001': 'claude-web/claude-haiku-4-5-20251001',
       'claude-haiku-4-5': 'claude-web/claude-haiku-4-5-20251001'
     };
+    // OpenCode Go: CLI `muse-spark-1.2-contributor` yerine `muse-spark-1.2-contributor-free`
+    // kullanır. API'ye giderken `-free` suffix'ini otomatik ekle (aksi halde 500 döner).
+    const OPENCODE_GO_MODEL_FIXES = {
+      'muse-spark-1.2-contributor': 'muse-spark-1.2-contributor-free'
+    };
+    if (typeof bodyForUpstream === 'string' && account.provider === 'opencode-go') {
+      try {
+        const parsed = JSON.parse(bodyForUpstream);
+        if (typeof parsed?.model === 'string' && OPENCODE_GO_MODEL_FIXES[parsed.model]) {
+          parsed.model = OPENCODE_GO_MODEL_FIXES[parsed.model];
+          bodyForUpstream = JSON.stringify(parsed);
+        }
+      } catch { /* body JSON değilse dokunma */ }
+    }
     if (typeof bodyForUpstream === 'string' && account.upstreamBase && /omniroute/i.test(account.upstreamBase)) {
       try {
         const parsed = JSON.parse(bodyForUpstream);

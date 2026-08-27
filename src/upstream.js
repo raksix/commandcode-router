@@ -60,11 +60,22 @@ export async function pipeToResponse({ upstreamRes, res, controller }) {
 /** Send a buffered body (already-serialized JSON or text) to the client. */
 export function sendBuffer({ res, status, headers, bodyBuffer }) {
   res.status(status);
+  let entries = [];
   if (headers) {
-    for (const [k, v] of headers.entries()) {
-      if (!HOP_HEADERS.has(k.toLowerCase())) res.setHeader(k, v);
+    if (typeof headers.entries === 'function') {
+      entries = [...headers.entries()];
+    } else if (typeof headers.forEach === 'function') {
+      headers.forEach((v, k) => entries.push([k, v]));
+    } else if (typeof headers.get === 'function') {
+      // Headers object without iterable entries
+      for (const k of headers.keys()) entries.push([k, headers.get(k)]);
+    } else {
+      entries = Object.entries(headers);
     }
   }
-  res.setHeader('content-type', headers?.get('content-type') || 'application/json');
+  for (const [k, v] of entries) {
+    if (!HOP_HEADERS.has(k.toLowerCase())) res.setHeader(k, v);
+  }
+  res.setHeader('content-type', (typeof headers?.get === 'function' ? headers.get('content-type') : headers?.['content-type']) || 'application/json');
   res.end(bodyBuffer);
 }

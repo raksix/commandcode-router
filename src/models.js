@@ -7,10 +7,10 @@ import { data, markDirty, getAccountState } from './store.js';
 
 export const UPSTREAM_BASES = {
   commandcode: 'https://api.commandcode.ai/provider',
-  'opencode-go': 'https://opencode.ai/zen/go/v1',
+  'opencode-go': 'https://api.opencode.ai/zen/go/v1',
   // OpenCode Zen — aynı API key hem /zen/go/v1 hem /zen/v1'e erişir.
   // OpenAI-uyumlu endpoint.
-  'opencode-zen': 'https://opencode.ai/zen/v1'
+  'opencode-zen': 'https://api.opencode.ai/zen/v1'
 };
 
 /** Hesabın upstream base URL'i (provider alanına göre; eski hesaplarda default commandcode). */
