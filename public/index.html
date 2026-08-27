@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>CommandCode Router</title>
-  <link rel="stylesheet" href="/assets/style.css?v=10" />
+  <link rel="stylesheet" href="/assets/style.css?v=11" />
 </head>
 <body>
   <!-- Loading screen (sayfa açılışında görünür, dashboard hazır olunca kaybolur) -->
@@ -25,11 +25,23 @@
   <!-- Login screen -->
   <div id="login-screen" class="screen">
     <div class="login-card">
-      <h1><svg class="ic"><use href="/assets/sprite.svg#i-shuffle"/></svg> CommandCode Router</h1>
-      <p class="sub">Yönetim paneline giriş</p>
+      <div class="login-brand">
+        <div class="logo-mark">CC</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;letter-spacing:-0.01em">CommandCode Router</div>
+          <div style="font-size:11px;color:var(--dim);margin-top:2px">Yönetim paneli</div>
+        </div>
+      </div>
+      <h1>Tekrar hoş geldin</h1>
+      <p class="sub">Devam etmek için admin şifreni gir.</p>
       <form id="login-form">
-        <input type="password" id="login-password" placeholder="Admin şifresi" autocomplete="current-password" required />
-        <button type="submit" class="btn btn-primary">Giriş Yap</button>
+        <div>
+          <label class="form-label" for="login-password">Şifre</label>
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary" style="justify-content:center;margin-top:4px">
+          <svg class="ic"><use href="/assets/sprite.svg#i-log-in"/></svg> Giriş Yap
+        </button>
       </form>
       <div id="login-error" class="error hidden"></div>
     </div>
@@ -39,11 +51,27 @@
   <div id="dashboard" class="screen dashboard hidden">
     <!-- Sidebar -->
     <aside class="sidebar">
-      <div class="sidebar-brand"><svg class="ic"><use href="/assets/sprite.svg#i-shuffle"/></svg> CommandCode Router</div>
+      <div class="sidebar-brand">
+        <div class="logo-mark">CC</div>
+        <div style="min-width:0">
+          <div class="sidebar-brand-text">CommandCode</div>
+          <div class="sidebar-brand-sub">router · master</div>
+        </div>
+      </div>
+      <div class="sidebar-section-label">Yönetim</div>
       <nav class="sidebar-nav">
         <a href="#overview" class="side-link active" data-section="overview">
           <svg class="ic side-icon"><use href="/assets/sprite.svg#i-layout-dashboard"/></svg> Genel Bakış
         </a>
+        <a href="#stats" class="side-link" data-section="stats">
+          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-chart-bar"/></svg> İstatistikler
+        </a>
+        <a href="#logs" class="side-link" data-section="logs">
+          <svg class="ic side-icon"><use href="/sprite.svg#i-scroll-text"/></svg> Loglar
+        </a>
+      </nav>
+      <div class="sidebar-section-label">Yapılandırma</div>
+      <nav class="sidebar-nav">
         <a href="#keys" class="side-link" data-section="keys">
           <svg class="ic side-icon"><use href="/assets/sprite.svg#i-key"/></svg> API Anahtarları
         </a>
@@ -53,22 +81,24 @@
         <a href="#models" class="side-link" data-section="models">
           <svg class="ic side-icon"><use href="/assets/sprite.svg#i-bot"/></svg> Modeller
         </a>
-        <a href="#stats" class="side-link" data-section="stats">
-          <svg class="ic side-icon"><use href="/assets/sprite.svg#i-chart-bar"/></svg> İstatistikler
-        </a>
-        <a href="#logs" class="side-link" data-section="logs">
-          <svg class="ic side-icon"><use href="/sprite.svg#i-scroll-text"/></svg> Loglar
-        </a>
         <a href="#proxies" class="side-link" data-section="proxies">
           <svg class="ic side-icon"><use href="/sprite.svg#i-globe"/></svg> Proxy Havuzu
         </a>
+      </nav>
+      <div class="sidebar-section-label">Referans</div>
+      <nav class="sidebar-nav" style="flex:0">
         <a href="#docs" class="side-link" data-section="docs">
           <svg class="ic side-icon"><use href="/assets/sprite.svg#i-book-open"/></svg> API Dokümanı
         </a>
       </nav>
       <div class="sidebar-footer">
-        <span id="rr-index" class="badge" title="Round-robin sırası">Sıra: 0</span>
-        <button id="logout-btn" class="btn btn-ghost btn-small">Çıkış</button>
+        <div class="sidebar-footer-row">
+          <span style="color:var(--dim)">Round-robin</span>
+          <span id="rr-index" class="badge" title="Round-robin sırası">Sıra: 0</span>
+        </div>
+        <button id="logout-btn" class="btn btn-outline btn-small" style="width:100%;justify-content:center">
+          <svg class="ic ic-xs"><use href="/sprite.svg#i-log-out"/></svg> Çıkış
+        </button>
       </div>
     </aside>
 
