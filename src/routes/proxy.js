@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { data, markDirty } from '../store.js';
 import { requireMasterKey } from '../auth.js';
 import { routeRequest, pickAccount, addLog, recordTokens } from '../pool.js';
+import { fetchModels } from '../models.js';
 import { pipeToResponse, sendBuffer } from '../upstream.js';
 import { isOssModel, anthropicToOpenAI, openAIToAnthropic, openAISToAnthropicSSE, extractOpenAIUsage, cleanModelPrefix } from '../convert.js';
 import {
@@ -22,12 +23,16 @@ export const proxyRouter = Router();
 // Auth: every /v1/* request must carry the master key
 proxyRouter.use('/v1', requireMasterKey);
 
-// ---- GET /v1/models (cached 5 min; config'te exposedModels varsa filtreler) ----
+// ---- GET /v1/models (merged multi-account list; config'te exposedModels varsa filtreler) ----
+// ÖNEMLİ: Daha önce bu handler TEK bir hesabın upstream'inden (/v1/models veya /models)
+// çekiyordu. Bu yüzden opencode-go / opencode-zen hesapları ilk sırada değildiğinde
+// o modeller /v1/models'te HİÇ görünmüyordu ve paneldeki toggle (expose/disable)
+// opencode-go modelleri üzerinde etkisiz kalıyordu. Artık fetchModels() ile TÜM
+// hesaplardan birleşik 155 model listesi kullanılıyor (panel ile aynı kaynak).
+//
+// exposedModels boş array = "hiçbir model sunma" (Disable All). Eski davranış
+// boş array'i "filtre yok = hepsini göster" sayıyordu ve Disable All işe yaramıyordu.
 proxyRouter.get('/v1/models', async (req, res) => {
-  const now = Date.now();
-  const cache = data.state.modelsCache;
-  const ttl = (data.config.modelsCacheTtlSec ?? 300) * 1000;
-
   const sendJson = (body, status = 200) => {
     sendBuffer({
       res, status,
@@ -36,62 +41,37 @@ proxyRouter.get('/v1/models', async (req, res) => {
     });
   };
 
-  // --- taze çek (cache'li) ---
-  let upstreamText = null;
-  if (cache.data && cache.at && now - cache.at < ttl) {
-    upstreamText = cache.data;
-  } else {
-    const account = pickAccount();
-    if (!account) {
-      sendJson({ error: 'aktif hesap yok' }, 503);
-      return;
-    }
-    try {
-      // hesabın provider'ına göre model listesi (commandcode: /v1/models, opencode-go: /models)
-      const base = (account.upstreamBase || UPSTREAM_BASE).replace(/\/+$/, '');
-      const modelsPath = account.provider === 'opencode-go' ? '/models' : '/v1/models';
-      const up = await fetch(base + modelsPath, {
-        headers: { authorization: `Bearer ${account.apiKey}` }
-      });
-      upstreamText = await up.text();
-      if (up.ok) {
-        cache.data = upstreamText;
-        cache.at = now;
-        markDirty();
-      } else {
-        sendJson({ error: 'models alınamadı' }, up.status);
-        return;
-      }
-    } catch (err) {
-      sendJson({ error: `models alınamadı: ${err.message}` }, 502);
-      return;
-    }
-  }
-
-  // --- exposedModels filtresi ---
-  const exposed = data.config.exposedModels || [];
-  if (!exposed.length) {
-    // boşsa hepsi aynen döner (cache'teki ham gövde)
-    sendBuffer({
-      res, status: 200,
-      headers: new Headers({ 'content-type': 'application/json' }),
-      bodyBuffer: upstreamText
-    });
+  let allModels;
+  try {
+    allModels = await fetchModels(); // [{ id, name, context_length, provider, accountName }]
+  } catch (err) {
+    sendJson({ error: `models alınamadı: ${err.message}` }, 502);
     return;
   }
 
-  // doluysa: CommandCode modellerini çek, sadece exposed olanları sun
-  let allModels = [];
-  try { allModels = JSON.parse(upstreamText).data ?? []; } catch { allModels = []; }
+  const exposed = data.config.exposedModels || [];
+  // Boş exposed = hiçbir model sunma (Disable All). Sadece exposed içindeki id'ler geçer.
   const allowed = new Set(exposed);
+  // Aynı id iki provider'da olabilir (commandcode + opencode-zen) — ikisini de geçir.
   const filtered = allModels.filter((m) => allowed.has(m.id));
-  // exposed'ta olup CommandCode'da bulunamayanları da ekle (API tutarlı olsun)
+  // exposed'ta olup birleşik listede bulunamayanları da ekle (bozuk/eski id tutarlılığı).
   for (const id of exposed) {
     if (!filtered.some((m) => m.id === id)) {
-      filtered.push({ id, object: 'model', created: 0, owned_by: 'command-code', name: id, context_length: null });
+      filtered.push({ id, object: 'model', created: 0, owned_by: 'command-code', name: id, context_length: null, provider: 'commandcode', accountName: '' });
     }
   }
-  sendJson({ object: 'list', data: filtered });
+  // Claude Code /v1/models formatına çevir (object:'list', data:[])
+  sendJson({
+    object: 'list',
+    data: filtered.map((m) => ({
+      id: m.id,
+      object: 'model',
+      created: 0,
+      owned_by: m.provider || 'command-code',
+      name: m.name || m.id,
+      context_length: m.context_length ?? null
+    }))
+  });
 });
 
 // ---- any other /v1/* request -> passthrough (POST /v1/messages, chat/completions, etc.) ----
