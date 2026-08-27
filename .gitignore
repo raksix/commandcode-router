@@ -6,3 +6,4 @@ state.json
 # Dependencies
 node_modules/
 core.*
+config.json.bak-mimo-fix
