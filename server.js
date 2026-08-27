@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { load, markDirty, flushNow, data } from './src/store.js';
 import { createApp } from './src/app.js';
 import { createCallbackHandler, CALLBACK_PORT, CALLBACK_PATH } from './src/ccauth.js';
+import { startCheckerLoop } from './src/proxy-pool.js';
 
 async function main() {
   await load();
@@ -17,6 +18,9 @@ async function main() {
     console.log(`  ANTHROPIC_BASE_URL=http://localhost:${port}`);
     console.log(`  ANTHROPIC_AUTH_TOKEN=<masterKey>\n`);
   });
+
+  // Background proxy health checker (proxies disabled for 12h on collapse)
+  startCheckerLoop();
 
   // CommandCode CLI auth callback sunucusu (ana porttan ayrı)
   const callbackServer = createServer(createCallbackHandler());
