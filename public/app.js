@@ -795,6 +795,7 @@ function esc(s) {
 // PROXY HAVUZU
 // ============================================================================
 const proxyState = { proxies: [], stats: {}, config: {}, filter: 'all', q: '' };
+const proxyHistory = { total: [], active: [], cool: [], disabled: [], ewma: [] };
 
 function proxyPill(rec) {
   if (rec.disabled) return `<span class="pill err">Disabled · ${proxyRemain(rec.disabledRemainingS)}</span>`;
@@ -809,14 +810,29 @@ function proxyRemain(s) {
   if (m) return `${m}dk ${sec}sn`;
   return `${sec}sn`;
 }
-function proxyLatency(rec) {
-  if (rec.latencyMs == null) return '<span style="color:var(--muted)">–</span>';
-  const slow = rec.latencyMs > 2500 ? ' style="color:var(--yellow)"' : '';
-  return `<span${slow}>${rec.latencyMs}ms</span>`;
+function ewmaColor(v) {
+  if (v >= 0.7) return 'var(--green)';
+  if (v >= 0.4) return 'var(--yellow)';
+  return 'var(--red)';
 }
-function proxyEwma(v) {
-  const pct = Math.max(0, Math.min(1, v)) * 100;
-  return `<span class="ewma-bar"><i style="width:${pct.toFixed(0)}%;background:linear-gradient(90deg,var(--red),var(--yellow),var(--green))"></i></span><span style="font-family:var(--mono);font-size:12px">${v.toFixed(2)}</span>`;
+function proxyLatency(rec) {
+  if (rec.latencyMs == null) return '<span style="color:var(--muted)">–</span><div class="latency-bar"><i style="width:0%"></i></div>';
+  const ms = rec.latencyMs;
+  const pct = Math.min(100, Math.max(2, (ms / 5000) * 100));
+  const color = ms > 2500 ? 'var(--yellow)' : (ms > 1000 ? 'var(--blue)' : 'var(--green)');
+  return `<span style="font-family:var(--mono);font-size:13px;color:${color}">${ms}ms</span><div class="latency-bar"><i style="width:${pct.toFixed(0)}%;background:${color}"></i></div>`;
+}
+function proxyEwmaDonut(v) {
+  const C = 2 * Math.PI * 15.5; // circumference
+  const pct = Math.max(0, Math.min(1, v));
+  const off = C * (1 - pct);
+  const col = ewmaColor(v);
+  return `<svg class="ewma-donut" viewBox="0 0 36 36">
+    <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--border)" stroke-width="3"/>
+    <circle cx="18" cy="18" r="15.5" fill="none" stroke="${col}" stroke-width="3"
+      stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"
+      stroke-linecap="round" transform="rotate(-90 18 18)"/>
+  </svg><span class="ewma-text" style="color:${col}">${v.toFixed(2)}</span>`;
 }
 function proxyAgo(ts) {
   if (!ts) return '—';
@@ -829,19 +845,24 @@ function proxyRow(rec) {
   const tr = document.createElement('tr');
   tr.dataset.id = rec.id;
   if (rec.disabled) tr.classList.add('disabled-row');
+  const authBadge = rec.withAuth ? `<span class="pill" style="background:var(--accent-soft);color:var(--accent-hover);font-size:10px;padding:1px 6px">auth</span>` : '';
   tr.innerHTML = `
-    <td><div style="font-family:var(--mono);font-size:13px">${esc(rec.endpoint)}</div>
-        <div style="color:var(--muted);font-size:11px">${esc(rec.label || '')} ${rec.tags?.length ? '· ' + rec.tags.map(t=>'#'+esc(t)).join(' ') : ''}</div></td>
+    <td>
+      <div class="endpoint-cell">${esc(rec.endpoint)} ${authBadge}</div>
+      <div class="endpoint-sub">${esc(rec.label || '')} ${rec.tags?.length ? '· ' + rec.tags.map(t=>'#'+esc(t)).join(' ') : ''}</div>
+    </td>
     <td class="col-status">${proxyPill(rec)}<div style="font-size:11px;color:var(--muted);margin-top:4px">${esc(rec.disabledReason || '')}</div></td>
-    <td>${proxyEwma(rec.ewma)}<div style="font-size:11px;color:var(--muted)">streak ${rec.streak} · ok/fail ${rec.reportedOk}/${rec.reportedFail}</div></td>
-    <td>${proxyLatency(rec)}<div style="font-size:11px;color:var(--muted)">${esc(rec.lastCheckStatus || '–')}</div></td>
-    <td><input type="number" min="0" max="20" value="${rec.weight}" data-proxy-act="weight" style="width:60px"></td>
-    <td style="font-family:var(--mono)">${rec.assignedCount}<div style="font-size:11px;color:var(--muted)">${proxyAgo(rec.lastUsedAt)} önce</div></td>
-    <td style="white-space:nowrap;text-align:right">
-      <button class="icon-btn" data-proxy-act="toggle" title="${rec.disabled ? 'Etkinleştir' : 'Devre dışı bırak'}">${rec.disabled ? '↻' : '⏸'}</button>
-      <button class="icon-btn" data-proxy-act="reportOk" title="OK raporla">✓</button>
-      <button class="icon-btn" data-proxy-act="reportFail" title="Hata raporla">✗</button>
-      <button class="icon-btn" data-proxy-act="delete" title="Sil" style="color:var(--red)">×</button>
+    <td>${proxyEwmaDonut(rec.ewma)}<div style="font-size:11px;color:var(--muted);margin-top:3px">streak ${rec.streak} · ${rec.reportedOk}/${rec.reportedFail}</div></td>
+    <td class="col-latency">${proxyLatency(rec)}<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(rec.lastCheckStatus || '–')}</div></td>
+    <td><input type="number" min="0" max="20" value="${rec.weight}" data-proxy-act="weight" class="weight-input"></td>
+    <td style="font-family:var(--mono);font-size:13px">${rec.assignedCount}<div style="font-size:11px;color:var(--muted)">${proxyAgo(rec.lastUsedAt)} önce</div></td>
+    <td>
+      <div class="row-actions">
+        <button class="icon-btn" data-proxy-act="toggle" title="${rec.disabled ? 'Etkinleştir' : 'Devre dışı bırak'}">${rec.disabled ? '↻' : '⏸'}</button>
+        <button class="icon-btn" data-proxy-act="reportOk" title="OK raporla">✓</button>
+        <button class="icon-btn" data-proxy-act="reportFail" title="Hata raporla">✗</button>
+        <button class="icon-btn danger" data-proxy-act="delete" title="Sil">×</button>
+      </div>
     </td>`;
   return tr;
 }
@@ -858,6 +879,64 @@ function proxyVisible(rec) {
   }
 }
 
+function pushHistory(key, val) {
+  const arr = proxyHistory[key];
+  arr.push(val);
+  if (arr.length > 24) arr.shift();
+  // görsel zenginlik için: tek veri noktası varsa küçük bir varyasyon ekle
+  if (arr.length === 1 && val > 0) {
+    arr.unshift(Math.max(0, val - 1));
+  }
+}
+function sparkPoints(arr, max) {
+  if (!arr.length) return '0,12 60,12';
+  const m = max || Math.max(...arr, 1);
+  const step = 60 / (arr.length - 1 || 1);
+  return arr.map((v, i) => `${(i * step).toFixed(1)},${(24 - (v / m) * 22 - 1).toFixed(1)}`).join(' ');
+}
+
+function updateProxyCharts() {
+  const s = proxyState.stats;
+  // sparklines
+  pushHistory('total', s.total || 0);
+  pushHistory('active', s.active || 0);
+  pushHistory('cool', s.coolingDown || 0);
+  pushHistory('disabled', s.disabled || 0);
+  pushHistory('ewma', Math.round((s.avgEwma || 0) * 100));
+  const setSpark = (id, pts, max) => { const el = document.getElementById(id); if (el) el.setAttribute('points', sparkPoints(pts, max)); };
+  setSpark('spark-total', proxyHistory.total, Math.max(1, ...proxyHistory.total));
+  setSpark('spark-active', proxyHistory.active, Math.max(1, ...proxyHistory.active));
+  setSpark('spark-cool', proxyHistory.cool, Math.max(1, ...proxyHistory.cool));
+  setSpark('spark-disabled', proxyHistory.disabled, Math.max(1, ...proxyHistory.disabled));
+
+  // gauge
+  const ewma = s.avgEwma || 0;
+  const C = 2 * Math.PI * 15.5;
+  const gauge = document.getElementById('gauge-ewma');
+  if (gauge) {
+    gauge.style.strokeDashoffset = (C * (1 - ewma)).toFixed(1);
+    gauge.style.stroke = ewmaColor(ewma);
+  }
+
+  // composition bar
+  const t = s.total || 1;
+  const aPct = ((s.active || 0) / t * 100).toFixed(1);
+  const cPct = ((s.coolingDown || 0) / t * 100).toFixed(1);
+  const dPct = ((s.disabled || 0) / t * 100).toFixed(1);
+  const compA = document.getElementById('comp-active');
+  const compC = document.getElementById('comp-cool');
+  const compD = document.getElementById('comp-disabled');
+  if (compA) compA.style.width = aPct + '%';
+  if (compC) compC.style.width = cPct + '%';
+  if (compD) compD.style.width = dPct + '%';
+  const legA = document.getElementById('leg-active');
+  const legC = document.getElementById('leg-cool');
+  const legD = document.getElementById('leg-disabled');
+  if (legA) legA.textContent = s.active || 0;
+  if (legC) legC.textContent = s.coolingDown || 0;
+  if (legD) legD.textContent = s.disabled || 0;
+}
+
 async function refreshProxies() {
   const j = await api('/api/proxies');
   if (!j || !j.ok) return;
@@ -868,7 +947,8 @@ async function refreshProxies() {
   $('#proxy-stat-active').textContent = proxyState.stats.active;
   $('#proxy-stat-cool').textContent = proxyState.stats.coolingDown;
   $('#proxy-stat-disabled').textContent = proxyState.stats.disabled;
-  $('#proxy-stat-ewma').textContent = proxyState.stats.avgEwma;
+  $('#proxy-stat-ewma').textContent = (proxyState.stats.avgEwma ?? '–');
+  updateProxyCharts();
   renderProxies();
 }
 
