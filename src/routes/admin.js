@@ -6,6 +6,7 @@ import {
   generateState, createAuthSession, hashState, getSession, consumeApiKey,
   cleanupExpired, CALLBACK_PORT, CALLBACK_PATH, STUDIO_AUTH_URL
 } from '../ccauth.js';
+import * as proxyPool from '../proxy-pool.js';
 
 export const adminRouter = Router();
 
@@ -448,3 +449,62 @@ function maskMasterKey(k) {
     lastUsedAt: k.lastUsedAt ?? null
   };
 }
+
+// ============================================================================
+// PROXY POOL — bulk import, weighted rotation, 12h auto-disable on collapse
+// ============================================================================
+
+adminRouter.get('/proxies', (req, res) => {
+  res.json({
+    ok: true,
+    stats: proxyPool.statsSummary(),
+    proxies: proxyPool.listProxies(),
+    config: proxyPool.configInfo(),
+  });
+});
+
+adminRouter.post('/proxies/bulk', (req, res) => {
+  const text = req.body?.text;
+  if (!text) { res.status(400).json({ ok: false, error: 'text alanı gerekli' }); return; }
+  const result = proxyPool.bulkAdd(text, req.body?.source);
+  res.json({ ok: true, ...result, stats: proxyPool.statsSummary() });
+});
+
+adminRouter.post('/proxies/next', (req, res) => {
+  const rec = proxyPool.pickNext();
+  if (!rec) { res.status(503).json({ ok: false, error: 'havuzda aktif proxy yok' }); return; }
+  // equal access for downstream: use snapshot + per-pick id
+  res.json({ ok: true, proxy: { id: rec.id, endpoint: `${rec.protocol}://${rec.host}:${rec.port}`,
+    withAuth: !!rec.username, assignedCount: rec.assignedCount } });
+});
+
+adminRouter.post('/proxies/report', (req, res) => {
+  const { id, ok, detail } = req.body ?? {};
+  if (!id) { res.status(400).json({ ok: false, error: 'id gerekli' }); return; }
+  const snap = proxyPool.reportOutcome(id, !!ok, detail);
+  if (!snap) { res.status(404).json({ ok: false, error: 'bilinmeyen id' }); return; }
+  res.json({ ok: true, proxy: snap });
+});
+
+adminRouter.post('/proxies/check', async (req, res) => {
+  const forceAll = req.query.all === '1';
+  if (forceAll) {
+    const state = data.state.proxies || (data.state.proxies = { proxies: {}, order: [], roundRobinIndex: 0 });
+    for (const rec of Object.values(state.proxies)) rec.lastCheckAt = 0;
+  }
+  const n = await proxyPool.checkDue(Object.keys(data.state.proxies?.proxies || {}).length || 1);
+  res.json({ ok: true, checked: n, stats: proxyPool.statsSummary() });
+});
+
+adminRouter.patch('/proxies/:id', (req, res) => {
+  const id = req.params.id;
+  const snap = proxyPool.updateProxy(id, req.body || {});
+  if (!snap) { res.status(404).json({ ok: false, error: 'bulunamadı' }); return; }
+  res.json({ ok: true, proxy: snap });
+});
+
+adminRouter.delete('/proxies/:id', (req, res) => {
+  const ok = proxyPool.removeProxy(req.params.id);
+  if (!ok) { res.status(404).json({ ok: false, error: 'bulunamadı' }); return; }
+  res.json({ ok: true, stats: proxyPool.statsSummary() });
+});
