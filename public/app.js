@@ -149,6 +149,9 @@ function setExposedSearch(v) {
   renderExposedList();
 }
 function providerBadge(provider) {
+  if (provider === 'opencode-zen') {
+    return ' <span class="prov-badge prov-zn" title="OpenCode Zen"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-sun"/></svg> zen</span>';
+  }
   if (provider === 'opencode-go') {
     return ' <span class="prov-badge prov-og" title="OpenCode Go"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-rocket"/></svg> opencode</span>';
   }
