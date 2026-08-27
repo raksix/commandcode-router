@@ -27,10 +27,8 @@ export function pickAccount() {
   data.state.roundRobinIndex = (idx + 1) % active.length;
   markDirty();
   const acc = active[idx];
-  // AĞU'26 fix: config'deki upstreamBase'i koruyoruz; provider default'una ezilmesin.
-  // Önceki kod acc.upstreamBase = accountBaseUrl(acc) ile her seferinde default'a
-  // düşürüyordu — bu, CommandCode hesaplarının OmniRoute'a yönlendirilmesini engelliyordu.
-  // Burada mutasyon YAPMA; gerekirse pool.js routeRequest içinde fallback kullanılır.
+  // Config'deki upstreamBase korunur; hesapta yoksa provider default'una düş.
+  if (!acc.upstreamBase) acc.upstreamBase = accountBaseUrl(acc);
   return acc;
 }
 
@@ -170,6 +168,32 @@ export async function routeRequest({ url, method, headers, body, signal, route, 
         if (parsed?.model && typeof parsed.model === 'string') {
           const slashIdx = parsed.model.lastIndexOf('/');
           if (slashIdx > 0) parsed.model = parsed.model.slice(slashIdx + 1);
+          bodyForUpstream = JSON.stringify(parsed);
+        }
+      } catch { /* body JSON değilse dokunma */ }
+    }
+    // AĞU'26: hesabın upstreamBase'i OmniRoute'a yönlendirilmişse model adına provider
+    // prefix'i (örn. "command-code/") ekle. OmniRoute'un command-code sağlayıcısı
+    // prefix'siz model adını kabul etmiyor ("No active credentials for provider: deepseek").
+    // Ayrıca kısa model adlarını OmniRoute'un beklediği vendor-prefix'li adlara map et.
+    const CC_MODEL_ALIASES = {
+      'claude-opus-5': 'claude-opus-4-7',
+      'claude-sonnet-5': 'claude-sonnet-4-6',
+      'gpt-5.6-luna': 'gpt-5.6-luna',
+      'deepseek-v4-flash': 'deepseek/deepseek-v4-flash',
+      'mimo-v2.5': 'xiaomi/mimo-v2.5'
+    };
+    if (typeof bodyForUpstream === 'string' && account.upstreamBase && /omniroute/i.test(account.upstreamBase)) {
+      try {
+        const parsed = JSON.parse(bodyForUpstream);
+        const m = parsed?.model;
+        if (typeof m === 'string' && m
+            && !/^command-code\//.test(m) && !/^(opencode-go|opencode-zen)\//.test(m)) {
+          // slash var/yok farketmez; provider prefix'i yoksa ekle.
+          // ("deepseek/deepseek-v4-flash" -> "command-code/deepseek/deepseek-v4-flash";
+          //  "mimo-v2.5" -> "command-code/xiaomi/mimo-v2.5" (vendor namespace map))
+          const resolved = CC_MODEL_ALIASES[m] || m;
+          parsed.model = 'command-code/' + resolved;
           bodyForUpstream = JSON.stringify(parsed);
         }
       } catch { /* body JSON değilse dokunma */ }
