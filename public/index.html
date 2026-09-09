@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>CommandCode Router</title>
-  <link rel="stylesheet" href="/assets/style.css?v=11" />
+  <link rel="stylesheet" href="/assets/style.css?v=13" />
 </head>
 <body>
   <!-- Loading screen (sayfa açılışında görünür, dashboard hazır olunca kaybolur) -->
@@ -117,7 +117,11 @@
           <div class="stat"><div class="stat-val red" id="stat-errors">0</div><div class="stat-lbl">Hata</div></div>
           <div class="stat"><div class="stat-val" id="stat-active">0</div><div class="stat-lbl">Aktif hesap</div></div>
           <div class="stat"><div class="stat-val" id="stat-banned">0</div><div class="stat-lbl">Banlı</div></div>
+          <div class="stat"><div class="stat-val token-in" id="stat-tokens">0</div><div class="stat-lbl">Toplam token</div></div>
         </div>
+        <h3 class="sub-head"><svg class="ic"><use href="/assets/sprite.svg#i-users"/></svg> Hesap Bazında Kullanım</h3>
+        <p class="hint">Her hesabın istek + token tüketimi ayrı kartta. En çok kullanan üstte.</p>
+        <div class="acct-grid" id="acct-usage-grid"></div>
         <div class="mini-bar" id="daily-chart"></div>
         <p class="hint" id="daily-chart-hint"></p>
         <div class="mini-bar token-bar" id="token-chart"></div>
@@ -172,7 +176,7 @@
         <table class="accounts">
           <thead>
             <tr>
-              <th>Ad</th><th>API Key</th><th>Provider</th><th>Durum</th><th>İstek</th><th>Hata</th><th>Son Kullanım</th><th></th>
+              <th>Ad</th><th>API Key</th><th>Provider</th><th>Durum</th><th>İstek</th><th>Token</th><th>Son Kullanım</th><th></th>
             </tr>
           </thead>
           <tbody id="accounts-body"></tbody>
@@ -481,6 +485,6 @@ curl -X POST http://localhost:3025/v1/messages \
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/assets/app.js?v=12"></script>
+  <script src="/assets/app.js?v=13"></script>
 </body>
 </html>

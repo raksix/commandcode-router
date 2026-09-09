@@ -532,6 +532,28 @@ tbody tr:hover { background: rgba(255, 255, 255, 0.015); }
 .bar-out { background: #f59e0b; }
 .token-chip { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
 
+/* ---- overview: hesap bazında kullanım kartları ---- */
+.sub-head { font-size: 14px; font-weight: 600; margin: 22px 0 4px; display: flex; align-items: center; gap: 8px; }
+.sub-head .ic { color: var(--muted); }
+.acct-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin: 12px 0 20px; }
+.acct-card { background: var(--card-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; transition: border-color .12s; }
+.acct-card:hover { border-color: var(--border-strong); }
+.acct-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.acct-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.acct-dot.dot-green { background: var(--green); box-shadow: 0 0 6px rgba(16,185,129,.6); }
+.acct-dot.dot-yellow { background: var(--yellow); }
+.acct-dot.dot-red { background: var(--red); box-shadow: 0 0 6px rgba(239,68,68,.6); }
+.acct-name { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-status { margin-left: auto; font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.acct-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.acct-nums > div { display: flex; flex-direction: column; gap: 1px; }
+.acct-nums b { font-family: var(--font-mono); font-size: 16px; font-weight: 700; }
+.acct-nums span { font-size: 10.5px; color: var(--muted); line-height: 1.35; }
+.acct-bar { height: 5px; border-radius: 99px; background: var(--border); overflow: hidden; margin-bottom: 8px; }
+.acct-bar > i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), #8b5cf6); transition: width .4s ease; }
+.acct-foot { font-size: 11px; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; }
+.acct-foot .red { color: var(--red); }
+
 /* ---- log tablosu ---- */
 .log-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
 .logtable th { font-size: 10.5px; }
