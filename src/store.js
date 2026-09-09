@@ -82,6 +82,20 @@ export async function load() {
     data.state = structuredClone(DEFAULT_STATE);
   }
   data.state = { ...structuredClone(DEFAULT_STATE), ...data.state };
+  // --- migration: per-account cumulative counters (Eyl'26 redesign) ---
+  // Eski state'lerde sadece totalRequests/consecutiveErrors vardı; yeni
+  // alanları sıfırla doldur ki /api/status hep aynı şekli dönsün.
+  for (const st of Object.values(data.state.accounts || {})) {
+    if (st.total == null) st.total = st.totalRequests || 0;
+    if (st.success == null) st.success = st.totalRequests || 0;
+    if (st.errors == null) st.errors = 0;
+    if (st.inputTokens == null) st.inputTokens = 0;
+    if (st.outputTokens == null) st.outputTokens = 0;
+  }
+  // Günlük kayıtlara hesap kırılımı (byAccount) tarafını ekle.
+  for (const d of Object.values(data.state.daily || {})) {
+    if (!d.byAccount) d.byAccount = {};
+  }
 }
 
 // ---- debounced persistence ----
@@ -118,8 +132,16 @@ export async function flushNow() {
 export function getAccountState(id) {
   if (!data.state.accounts[id]) {
     data.state.accounts[id] = {
-      totalRequests: 0, consecutiveErrors: 0, lastUsedAt: null, lastError: null, banned: false
+      totalRequests: 0, consecutiveErrors: 0, lastUsedAt: null, lastError: null, banned: false,
+      total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0
     };
   }
-  return data.state.accounts[id];
+  const st = data.state.accounts[id];
+  // Eski state'lerle uyumluluk: eksik sayaçları yerinde doldur.
+  if (st.total == null) st.total = st.totalRequests || 0;
+  if (st.success == null) st.success = st.totalRequests || 0;
+  if (st.errors == null) st.errors = 0;
+  if (st.inputTokens == null) st.inputTokens = 0;
+  if (st.outputTokens == null) st.outputTokens = 0;
+  return st;
 }

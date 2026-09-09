@@ -27,6 +27,8 @@ function record(account, { ok, error, status, route }) {
   if (ok) {
     data.state.stats.success++;
     st.totalRequests++;
+    st.total = (st.total || 0) + 1;
+    st.success = (st.success || 0) + 1;
     st.consecutiveErrors = 0;
     st.lastUsedAt = Date.now();
     st.banned = false;
@@ -34,16 +36,23 @@ function record(account, { ok, error, status, route }) {
   } else {
     data.state.stats.errors++;
     st.consecutiveErrors++;
+    st.total = (st.total || 0) + 1;
+    st.errors = (st.errors || 0) + 1;
     st.lastError = error || `HTTP ${status}`;
     if (st.consecutiveErrors >= data.config.retry.banAfter) {
       st.banned = true;
     }
   }
-  // günlük istatistik
+  // günlük istatistik (global + hesap kırılımı)
   const day = new Date().toISOString().slice(0, 10);
-  if (!data.state.daily[day]) data.state.daily[day] = { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 };
-  data.state.daily[day].total++;
-  if (ok) data.state.daily[day].success++; else data.state.daily[day].errors++;
+  if (!data.state.daily[day]) data.state.daily[day] = { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0, byAccount: {} };
+  const dd = data.state.daily[day];
+  if (!dd.byAccount) dd.byAccount = {};
+  dd.total++;
+  if (ok) dd.success++; else dd.errors++;
+  const ba = dd.byAccount[account.id] || (dd.byAccount[account.id] = { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 });
+  ba.total++;
+  if (ok) ba.success++; else ba.errors++;
   markDirty();
 }
 
@@ -56,6 +65,7 @@ export function addLog(entry) {
     model: entry.model || null,
     mappedTo: entry.mappedTo || null,
     account: entry.account,
+    accountId: entry.accountId || null,
     status: entry.status,
     ok: entry.ok,
     ms: entry.ms,
@@ -74,15 +84,26 @@ export function addLog(entry) {
   return log;
 }
 
-/** Günlük token istatistiklerine ekle (grafikte gösterilir) */
-export function recordTokens({ inputTokens = 0, outputTokens = 0 } = {}) {
+/** Günlük token istatistiklerine ekle (grafikte gösterilir). accountId verilirse
+ *  hesap sayaçlarına + günün byAccount kırılımına da işler. */
+export function recordTokens({ inputTokens = 0, outputTokens = 0, accountId = null } = {}) {
   if (!inputTokens && !outputTokens) return;
   const day = new Date().toISOString().slice(0, 10);
   if (!data.state.daily[day]) {
-    data.state.daily[day] = { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 };
+    data.state.daily[day] = { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0, byAccount: {} };
   }
-  data.state.daily[day].inputTokens = (data.state.daily[day].inputTokens || 0) + inputTokens;
-  data.state.daily[day].outputTokens = (data.state.daily[day].outputTokens || 0) + outputTokens;
+  const dd = data.state.daily[day];
+  dd.inputTokens = (dd.inputTokens || 0) + inputTokens;
+  dd.outputTokens = (dd.outputTokens || 0) + outputTokens;
+  if (accountId) {
+    const st = getAccountState(accountId);
+    st.inputTokens = (st.inputTokens || 0) + inputTokens;
+    st.outputTokens = (st.outputTokens || 0) + outputTokens;
+    if (!dd.byAccount) dd.byAccount = {};
+    const ba = dd.byAccount[accountId] || (dd.byAccount[accountId] = { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 });
+    ba.inputTokens = (ba.inputTokens || 0) + inputTokens;
+    ba.outputTokens = (ba.outputTokens || 0) + outputTokens;
+  }
   markDirty();
 }
 

@@ -54,6 +54,9 @@ adminRouter.use('/playground', playgroundRouter);
 adminRouter.get('/status', (req, res) => {
   const accounts = (data.config.accounts || []).map((a) => {
     const st = getAccountState(a.id);
+    const total = st.total ?? st.totalRequests ?? 0;
+    const success = st.success ?? st.totalRequests ?? 0;
+    const errors = st.errors ?? 0;
     return {
       id: a.id,
       name: a.name,
@@ -61,6 +64,14 @@ adminRouter.get('/status', (req, res) => {
       apiKeyMasked: maskKey(a.apiKey),
       isActive: a.isActive,
       totalRequests: st.totalRequests,
+      // Eyl'26 redesign: hesap bazında kümülatif + token sayaçları
+      total,
+      success,
+      errors,
+      successRate: total ? Math.round((success / total) * 100) : 0,
+      inputTokens: st.inputTokens || 0,
+      outputTokens: st.outputTokens || 0,
+      totalTokens: (st.inputTokens || 0) + (st.outputTokens || 0),
       consecutiveErrors: st.consecutiveErrors,
       lastUsedAt: st.lastUsedAt,
       lastError: st.lastError,

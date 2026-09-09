@@ -130,6 +130,7 @@ export async function handleV1Request(req, res, started = Date.now()) {
     route: upstreamRoute,
     model: body.model ?? req.body?.model,
     account: result.account?.name ?? null,
+    accountId: result.account?.id ?? null,
     status: result.status,
     ok: result.status >= 200 && result.status < 300,
     ms: Date.now() - started,
@@ -140,14 +141,14 @@ export async function handleV1Request(req, res, started = Date.now()) {
     // OpenAI yanıtını Anthropic formatına çevir
     if (result.bodyStream) {
       // stream: SSE event'lerini dönüştürerek pipe et (bitince log'a token yazar)
-      pipeConvertedStream({ upstreamRes: result, res, controller, log });
+      pipeConvertedStream({ upstreamRes: result, res, controller, log, accountId: result.account?.id ?? null });
     } else {
       let payload = result.bodyBuffer ?? JSON.stringify(result.body ?? {});
       try {
         const oj = typeof payload === 'string' ? JSON.parse(payload) : payload;
         // token istatistikleri (OpenAI usage)
         if (oj.usage) {
-          recordTokens({ inputTokens: oj.usage.prompt_tokens, outputTokens: oj.usage.completion_tokens });
+          recordTokens({ inputTokens: oj.usage.prompt_tokens, outputTokens: oj.usage.completion_tokens, accountId: result.account?.id ?? null });
           log.inputTokens = oj.usage.prompt_tokens ?? null;
           log.outputTokens = oj.usage.completion_tokens ?? null;
           markDirty();
@@ -179,7 +180,7 @@ proxyRouter.use('/v1', requireMasterKey);
 proxyRouter.use('/v1', handleV1Request);
 
 // OpenAI SSE stream -> Anthropic SSE stream pipe
-function pipeConvertedStream({ upstreamRes, res, controller, log }) {
+function pipeConvertedStream({ upstreamRes, res, controller, log, accountId = null }) {
   res.status(upstreamRes.status);
   res.setHeader('content-type', 'text/event-stream');
   res.setHeader('cache-control', 'no-cache');
@@ -279,7 +280,7 @@ function pipeConvertedStream({ upstreamRes, res, controller, log }) {
       }
       const u = usage || extractOpenAIUsage(buffer);
       if (u) {
-        recordTokens({ inputTokens: u.prompt_tokens, outputTokens: u.completion_tokens });
+        recordTokens({ inputTokens: u.prompt_tokens, outputTokens: u.completion_tokens, accountId });
         if (log) {
           log.inputTokens = u.prompt_tokens ?? null;
           log.outputTokens = u.completion_tokens ?? null;
@@ -361,6 +362,7 @@ async function handleAlpha(req, res, route, started) {
     route: '/alpha/generate',
     model: body.model ?? req.body?.model,
     account: result.account?.name ?? null,
+    accountId: result.account?.id ?? null,
     status: result.status,
     ok: result.status >= 200 && result.status < 300,
     ms: Date.now() - started,
@@ -371,7 +373,7 @@ async function handleAlpha(req, res, route, started) {
   log.streamFlag = Boolean(req.body?.stream);
 
   if (result.bodyStream) {
-    pipeAlphaStream({ upstreamRes: result, res, controller, log, isAnthropic, clientStream, bodyStream: result.bodyStream, model: clientModel || body.model });
+    pipeAlphaStream({ upstreamRes: result, res, controller, log, isAnthropic, clientStream, bodyStream: result.bodyStream, model: clientModel || body.model, accountId: result.account?.id ?? null });
   } else {
     // hata gövdesi (bodyBuffer) — olduğu gibi geç
     sendBuffer({
@@ -388,7 +390,7 @@ async function handleAlpha(req, res, route, started) {
  * - clientStream:true  -> Anthropic / OpenAI SSE olarak akıt
  * - clientStream:false -> event'leri topla, tek JSON yanıt üret
  */
-function pipeAlphaStream({ upstreamRes, res, controller, log, isAnthropic, clientStream, bodyStream, model }) {
+function pipeAlphaStream({ upstreamRes, res, controller, log, isAnthropic, clientStream, bodyStream, model, accountId = null }) {
   const state = createAlphaState();
   // Claude Code, message_start.message.model boşsa yanıtı "malformed" sayar.
   // CLI event'leri model taşımaz -> istekten al (zaten map'lenmiş upstream modeli).
@@ -428,7 +430,7 @@ function pipeAlphaStream({ upstreamRes, res, controller, log, isAnthropic, clien
     const input = u.inputTokens ?? u.input_tokens ?? u.promptTokens ?? u.prompt_tokens ?? 0;
     const output = u.outputTokens ?? u.output_tokens ?? u.completionTokens ?? u.completion_tokens ?? 0;
     if (!input && !output) return;
-    recordTokens({ inputTokens: input, outputTokens: output });
+    recordTokens({ inputTokens: input, outputTokens: output, accountId });
     if (log) {
       log.inputTokens = input;
       log.outputTokens = output;
