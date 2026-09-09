@@ -255,6 +255,9 @@ async function refresh() {
   $('#stat-errors').textContent = status.stats.errors;
   $('#stat-active').textContent = status.accounts.filter(a => a.isActive && !a.banned).length;
   $('#stat-banned').textContent = status.accounts.filter(a => a.banned).length;
+  const totTok = (status.accounts || []).reduce((n, a) => n + (a.totalTokens || 0), 0);
+  const stTok = $('#stat-tokens');
+  if (stTok) stTok.textContent = fmtNum(totTok);
   $('#rr-index').textContent = `Sıra: ${status.roundRobinIndex}`;
 
   // master keys
@@ -262,6 +265,9 @@ async function refresh() {
 
   // accounts
   renderAccounts(status.accounts);
+
+  // overview: hesap bazında kullanım kartları
+  renderAcctUsage(status.accounts, status.daily);
 
   // istatistik + loglar
   renderDaily(status.daily);
@@ -351,8 +357,8 @@ function renderAccounts(accounts) {
       </td>
       <td><span class="badge ${a.provider === 'opencode-go' ? 'badge-og' : 'badge-cc'}">${a.provider === 'opencode-go' ? 'OpenCode Go' : 'CommandCode'}</span></td>
       <td>${statusBadge}${a.banned ? `<div class="hint">${esc(a.lastError || '')}</div>` : ''}</td>
-      <td>${a.totalRequests}</td>
-      <td class="${a.consecutiveErrors > 0 ? 'stat-val red' : ''}" style="font-size:14px">${a.consecutiveErrors}</td>
+      <td><b>${fmtNum(a.total ?? a.totalRequests ?? 0)}</b> <span class="hint">(%${a.successRate ?? 0})</span></td>
+      <td class="mono small token-chip" title="girdi / çıktı">${fmtNum(a.inputTokens || 0)}/${fmtNum(a.outputTokens || 0)}<div class="hint">${fmtNum(a.totalTokens || 0)} tok</div></td>
       <td>${fmtTime(a.lastUsedAt)}</td>
       <td>
         <div class="action-row">
@@ -430,6 +436,45 @@ function renderAccounts(accounts) {
 
     tbody.appendChild(tr);
   }
+}
+
+// ---- overview: hesap bazında kullanım kartları ----
+// Her hesabı ayrı kartta gösterir: toplam istek + başarı oranı + token (in/out)
+// + bugünkü kullanım (daily.byAccount). En çok token kullanan üstte.
+function renderAcctUsage(accounts, daily) {
+  const grid = $('#acct-usage-grid');
+  if (!grid) return;
+  if (!accounts || !accounts.length) {
+    grid.innerHTML = '<span class="hint">Henüz hesap yok — Hesaplar sekmesinden ekle.</span>';
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const byAcc = daily?.[today]?.byAccount || {};
+  const maxTok = Math.max(...accounts.map((a) => a.totalTokens || 0), 1);
+  const sorted = [...accounts].sort((x, y) => (y.totalTokens || 0) - (x.totalTokens || 0));
+  grid.innerHTML = sorted.map((a) => {
+    const t = byAcc[a.id] || { total: 0, success: 0, errors: 0, inputTokens: 0, outputTokens: 0 };
+    const pct = maxTok ? Math.round(((a.totalTokens || 0) / maxTok) * 100) : 0;
+    const stDot = a.banned ? 'dot-red' : (a.isActive ? 'dot-green' : 'dot-yellow');
+    const stTxt = a.banned ? 'Banlı' : (a.isActive ? 'Aktif' : 'Pasif');
+    const prov = a.provider === 'opencode-go' ? 'OpenCode Go'
+      : a.provider === 'opencode-zen' ? 'OpenCode Zen' : 'CommandCode';
+    return `<div class="acct-card">
+      <div class="acct-top">
+        <span class="acct-dot ${stDot}"></span>
+        <span class="acct-name">${esc(a.name)}</span>
+        <span class="badge ${a.provider === 'opencode-go' ? 'badge-og' : 'badge-cc'}">${prov}</span>
+        <span class="acct-status">${stTxt}</span>
+      </div>
+      <div class="acct-nums">
+        <div><b>${fmtNum(a.total ?? 0)}</b><span>istek · %${a.successRate ?? 0} ok</span></div>
+        <div><b>${fmtNum(a.totalTokens || 0)}</b><span>token · ${fmtNum(a.inputTokens || 0)} in / ${fmtNum(a.outputTokens || 0)} out</span></div>
+        <div><b>${fmtNum(t.total || 0)}</b><span>bugün · ${fmtNum((t.inputTokens || 0) + (t.outputTokens || 0))} tok</span></div>
+      </div>
+      <div class="acct-bar"><i style="width:${pct}%"></i></div>
+      <div class="acct-foot"><span>Son kullanım: ${fmtTime(a.lastUsedAt)}</span>${a.consecutiveErrors ? `<span class="red">· ${a.consecutiveErrors} ardışık hata</span>` : ''}</div>
+    </div>`;
+  }).join('');
 }
 
 // Tek hesabı listede yeni index'e taşı ve backend'e yeni sırayı gönder.
