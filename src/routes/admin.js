@@ -9,6 +9,7 @@ import {
 } from '../ccauth.js';
 import * as proxyPool from '../proxy-pool.js';
 import { fetchModels, UPSTREAM_BASES, accountBaseUrl } from '../models.js';
+import { getAllLimits, dropLimitCache } from '../limits.js';
 
 export const adminRouter = Router();
 
@@ -394,6 +395,18 @@ function maskMasterKey(k) {
     lastUsedAt: k.lastUsedAt ?? null
   };
 }
+
+// ---- upstream limits: hesap başına 5h/weekly/monthly (canlı, 5dk cache) ----
+adminRouter.get('/limits', async (req, res) => {
+  const force = req.query.force === '1';
+  const limits = await getAllLimits(data.config.accounts || [], { force });
+  res.json({ ok: true, limits });
+});
+
+adminRouter.post('/limits/refresh', async (req, res) => {
+  const limits = await getAllLimits(data.config.accounts || [], { force: true });
+  res.json({ ok: true, limits });
+});
 
 // ============================================================================
 // PROXY POOL — bulk import, weighted rotation, 12h auto-disable on collapse
