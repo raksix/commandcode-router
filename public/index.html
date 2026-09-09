@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>CommandCode Router</title>
-  <link rel="stylesheet" href="/assets/style.css?v=13" />
+  <link rel="stylesheet" href="/assets/style.css?v=14" />
 </head>
 <body>
   <!-- Loading screen (sayfa açılışında görünür, dashboard hazır olunca kaybolur) -->
@@ -122,6 +122,11 @@
         <h3 class="sub-head"><svg class="ic"><use href="/assets/sprite.svg#i-users"/></svg> Hesap Bazında Kullanım</h3>
         <p class="hint">Her hesabın istek + token tüketimi ayrı kartta. En çok kullanan üstte.</p>
         <div class="acct-grid" id="acct-usage-grid"></div>
+        <h3 class="sub-head"><svg class="ic"><use href="/assets/sprite.svg#i-zap"/></svg> Hesap Limitleri
+          <span class="acc-actions"><button id="limits-refresh-btn" class="btn btn-small btn-outline">Yenile</button></span>
+        </h3>
+        <p class="hint" id="limits-hint">Upstream'den canlı: 5 saatlik / haftalık / aylık pencere + dönem kullanımı. 5 dakikada bir otomatik tazelenir.</p>
+        <div class="acct-grid" id="limit-grid"></div>
         <div class="mini-bar" id="daily-chart"></div>
         <p class="hint" id="daily-chart-hint"></p>
         <div class="mini-bar token-bar" id="token-chart"></div>
@@ -485,6 +490,6 @@ curl -X POST http://localhost:3025/v1/messages \
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="/assets/app.js?v=13"></script>
+  <script src="/assets/app.js?v=14"></script>
 </body>
 </html>

@@ -554,6 +554,21 @@ tbody tr:hover { background: rgba(255, 255, 255, 0.015); }
 .acct-foot { font-size: 11px; color: var(--dim); display: flex; gap: 6px; flex-wrap: wrap; }
 .acct-foot .red { color: var(--red); }
 
+/* ---- overview: upstream limit kartları ---- */
+.lim-row { margin-bottom: 10px; }
+.lim-row:last-of-type { margin-bottom: 6px; }
+.lim-lbl { display: flex; justify-content: space-between; align-items: baseline; font-size: 11.5px; margin-bottom: 4px; }
+.lim-lbl .mono { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; }
+.lim-bar { margin-bottom: 3px; }
+.lim-bar > i { background: linear-gradient(90deg, var(--green), #34d399); }
+.lim-bar > i.lim-warn { background: linear-gradient(90deg, var(--yellow), #fbbf24); }
+.lim-bar > i.lim-full { background: linear-gradient(90deg, var(--red), #f87171); }
+.lim-sub { font-size: 10.5px; color: var(--muted); }
+.lim-plan { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+.lim-foot { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--dim); border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px; }
+.lim-foot .mono { font-family: var(--font-mono); }
+.lim-err { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--red); }
+
 /* ---- log tablosu ---- */
 .log-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
 .logtable th { font-size: 10.5px; }

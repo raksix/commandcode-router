@@ -103,6 +103,12 @@ function setupNav() {
   const initial = location.hash.replace('#', '');
   if (initial && links.some((l) => l.dataset.section === initial)) show(initial);
   else show('overview');
+  // limit kartları: manuel yenile butonu
+  const limBtn = $('#limits-refresh-btn');
+  if (limBtn && !limBtn.dataset.wired) {
+    limBtn.dataset.wired = '1';
+    limBtn.addEventListener('click', () => loadLimits(true));
+  }
 }
 
 // ---- CommandCode model list (for dropdowns + full list) ----
@@ -268,6 +274,10 @@ async function refresh() {
 
   // overview: hesap bazında kullanım kartları
   renderAcctUsage(status.accounts, status.daily);
+
+  // overview: upstream limit kartları (hesap listesi cache'lenir, limitler ayrı endpoint'ten)
+  renderLimits(status.accounts, cachedLimits);
+  if (!cachedLimits) loadLimits(false);
 
   // istatistik + loglar
   renderDaily(status.daily);
@@ -474,6 +484,86 @@ function renderAcctUsage(accounts, daily) {
       <div class="acct-bar"><i style="width:${pct}%"></i></div>
       <div class="acct-foot"><span>Son kullanım: ${fmtTime(a.lastUsedAt)}</span>${a.consecutiveErrors ? `<span class="red">· ${a.consecutiveErrors} ardışık hata</span>` : ''}</div>
     </div>`;
+  }).join('');
+}
+
+// ---- overview: upstream limit kartları (5h / haftalık / aylık) ----
+// /api/limits çıktısını hesap kartı olarak çizer. Barlar kullanılan/kap oranını
+// gösterir; doluluk %85 üstündeyse sarı, %100'de (exceeded) kırmızıya döner.
+function barPct(used, cap) {
+  if (used == null || cap == null || !cap) return 0;
+  return Math.min(100, Math.round((used / cap) * 100));
+}
+function limitBar(label, used, cap, resetAt, unit) {
+  const pct = barPct(used, cap);
+  const cls = pct >= 100 ? 'lim-full' : (pct >= 85 ? 'lim-warn' : '');
+  const u = used == null ? '—' : (unit === '$' ? '$' + used : fmtNum(used));
+  const c = cap == null ? '—' : (unit === '$' ? '$' + cap : fmtNum(cap));
+  const rst = resetAt ? ` · sıfırlanma ${fmtTime(resetAt)}` : '';
+  return `<div class="lim-row">
+    <div class="lim-lbl"><span>${label}</span><span class="mono">${u} / ${c}</span></div>
+    <div class="acct-bar lim-bar"><i class="${cls}" style="width:${pct}%"></i></div>
+    <div class="lim-sub">%${pct}${rst}</div>
+  </div>`;
+}
+let cachedLimits = null;
+async function loadLimits(force = false) {
+  const grid = $('#limit-grid');
+  const hint = $('#limits-hint');
+  try {
+    const j = await api(force ? '/api/limits/refresh' : '/api/limits');
+    cachedLimits = j.limits || {};
+    renderLimits(statusAccountsCache, cachedLimits);
+    const n = Object.keys(cachedLimits).length;
+    if (hint) hint.textContent = `${n} hesabın upstream limiti · canlı · 5 dk cache — son çekilme ${new Date().toLocaleTimeString('tr-TR')}`;
+  } catch (err) {
+    if (grid && !cachedLimits) grid.innerHTML = `<span class="hint">Limitler alınamadı: ${esc(err.message)}</span>`;
+    if (hint) hint.textContent = 'Limitler alınamadı — Yenile ile tekrar dene.';
+  }
+}
+// Hesap listesi /api/status'tan gelir; limitler /api/limits'ten. İkisini kartta birleştir.
+let statusAccountsCache = [];
+function renderLimits(accounts, limits) {
+  const grid = $('#limit-grid');
+  if (!grid) return;
+  statusAccountsCache = accounts || statusAccountsCache;
+  const accs = statusAccountsCache || [];
+  if (!accs.length) {
+    grid.innerHTML = '<span class="hint">Henüz hesap yok — Hesaplar sekmesinden ekle.</span>';
+    return;
+  }
+  if (!limits) {
+    grid.innerHTML = '<span class="hint">Limitler yükleniyor…</span>';
+    return;
+  }
+  grid.innerHTML = accs.map((a) => {
+    const lim = limits[a.id];
+    const prov = a.provider === 'opencode-go' ? 'OpenCode Go'
+      : a.provider === 'opencode-zen' ? 'OpenCode Zen' : 'CommandCode';
+    const head = `<div class="acct-top">
+        <span class="acct-name">${esc(a.name)}</span>
+        <span class="badge ${a.provider === 'opencode-go' ? 'badge-og' : 'badge-cc'}">${prov}</span>
+      </div>`;
+    if (!lim) {
+      return `<div class="acct-card">${head}<span class="hint">Limit verisi yok.</span></div>`;
+    }
+    if (!lim.ok) {
+      return `<div class="acct-card">${head}
+        <div class="lim-err"><svg class="ic ic-xs"><use href="/assets/sprite.svg#i-circle-x"/></svg> ${esc(lim.error || 'alınamadı')}</div>
+      </div>`;
+    }
+    const planLine = lim.planId
+      ? `<div class="lim-plan"><span class="badge">${esc(lim.planId)}</span>${lim.periodEnd ? `<span>yenileme ${fmtTime(lim.periodEnd)}</span>` : ''}</div>`
+      : '';
+    const monthly = lim.monthly && (lim.monthly.total != null || lim.monthly.remaining != null)
+      ? limitBar('Aylık', lim.monthly.used, lim.monthly.total, lim.periodEnd, '$')
+      : '';
+    const five = lim.fiveHour ? limitBar('5 saatlik', lim.fiveHour.used, lim.fiveHour.cap, lim.fiveHour.resetAt, '$') : '';
+    const weekly = lim.weekly ? limitBar('Haftalık', lim.weekly.used, lim.weekly.cap, lim.weekly.resetAt, '$') : '';
+    const pu = lim.periodUsage
+      ? `<div class="lim-foot"><span>${fmtNum(lim.periodUsage.requests)} istek</span><span>$${lim.periodUsage.cost ?? '—'} harcama</span><span>${fmtNum((lim.periodUsage.tokensIn || 0) + (lim.periodUsage.tokensOut || 0))} tok</span></div>`
+      : '';
+    return `<div class="acct-card">${head}${planLine}${five}${weekly}${monthly}${pu}</div>`;
   }).join('');
 }
 
